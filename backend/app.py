@@ -1151,32 +1151,37 @@ def analyze_kundli():
 
 @app.route('/api/form-submit', methods=['POST'])
 def form_submit():
-    """Append form submission to Google Sheet."""
+    """Append form submission to Google Sheet (optional)."""
     try:
-        if append_form_submission is None:
-            return jsonify({"error": "Sheets integration not available on server"}), 500
-
         payload = request.get_json() or {}
         required = ['name', 'dob', 'tob', 'place', 'timezone']
         missing = [k for k in required if not str(payload.get(k, '')).strip()]
         if missing:
             return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
 
-        # Append to Google Sheet (requires GOOGLE_SHEETS_SPREADSHEET_ID and refresh token)
-        append_form_submission(
-            spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
-            worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
-            row_data=[
-                datetime.now().isoformat(),
-                payload['name'],
-                payload['dob'],
-                payload['tob'],
-                payload['place'],
-                payload.get('timezone', 'Asia/Kolkata')
-            ]
-        )
+        # Try to append to Google Sheet (optional - not critical for core functionality)
+        if append_form_submission is not None:
+            try:
+                append_form_submission(
+                    spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
+                    worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
+                    row_data=[
+                        datetime.now().isoformat(),
+                        payload['name'],
+                        payload['dob'],
+                        payload['tob'],
+                        payload['place'],
+                        payload.get('timezone', 'Asia/Kolkata')
+                    ]
+                )
+                logger.info("Form data successfully saved to Google Sheets")
+            except Exception as sheets_error:
+                logger.warning(f"Google Sheets integration failed: {sheets_error}")
+                # Continue without Google Sheets - not critical
+        else:
+            logger.info("Google Sheets integration not configured - skipping data storage")
 
-        return jsonify({"success": True})
+        return jsonify({"success": True, "message": "Form submitted successfully"})
     except HttpError as he:
         logger.error(f"Google Sheets API error: {he}")
         return jsonify({"error": "Google Sheets API error", "message": str(he)}), 500
