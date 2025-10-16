@@ -25,6 +25,7 @@ chromadb==0.4.15
 
 # Document processing for KP rules
 python-docx==0.8.11
+docx2txt==0.8
 
 # Google Sheets integration
 google-auth==2.33.0
