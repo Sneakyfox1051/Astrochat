@@ -34,11 +34,48 @@ import openai
 from dotenv import load_dotenv
 from googleapiclient.errors import HttpError
 
-# LangChain imports
-from langchain_community.document_loaders import Docx2txtLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_openai import OpenAIEmbeddings
+# LangChain imports - Optional for RAG functionality
+try:
+    from langchain_community.document_loaders import Docx2txtLoader
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain_community.vectorstores import Chroma
+    # Use OpenAI embeddings directly instead of langchain-openai
+    import openai
+    RAG_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"LangChain dependencies not available. RAG functionality disabled. Error: {e}")
+    RAG_AVAILABLE = False
+
+class CustomOpenAIEmbeddings:
+    """Custom OpenAI embeddings class to replace langchain-openai"""
+    
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.client = openai.OpenAI(api_key=api_key)
+    
+    def embed_documents(self, texts):
+        """Embed a list of documents"""
+        try:
+            response = self.client.embeddings.create(
+                model="text-embedding-3-small",
+                input=texts
+            )
+            return [embedding.embedding for embedding in response.data]
+        except Exception as e:
+            logger.error(f"Error embedding documents: {e}")
+            return [[0.0] * 1536 for _ in texts]  # Fallback embeddings
+    
+    def embed_query(self, text):
+        """Embed a single query"""
+        try:
+            response = self.client.embeddings.create(
+                model="text-embedding-3-small",
+                input=[text]
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            logger.error(f"Error embedding query: {e}")
+            return [0.0] * 1536  # Fallback embedding
 
 # Environment Configuration
 # Load environment variables from backend/.env file
@@ -91,10 +128,17 @@ class EnhancedAstroBotAPI:
         self.access_token = None
         self.token_expiry = None
         self.vector_store = None
-        self._load_vector_store()
+        if RAG_AVAILABLE:
+            self._load_vector_store()
+        else:
+            logger.info("RAG system disabled - LangChain dependencies not available")
     
     def _load_vector_store(self):
         """Load and process Word documents for RAG"""
+        if not RAG_AVAILABLE:
+            logger.warning("Cannot load vector store - LangChain dependencies not available")
+            return
+            
         try:
             all_docs = []
             docs_path = os.path.join(os.path.dirname(__file__), '..', 'docs')
@@ -114,9 +158,17 @@ class EnhancedAstroBotAPI:
             if all_docs and OPENAI_API_KEY:
                 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
                 texts = text_splitter.split_documents(all_docs)
-                embeddings = OpenAIEmbeddings()
-                self.vector_store = FAISS.from_documents(texts, embeddings)
-                logger.info("Vector store loaded successfully")
+                
+                # Create embeddings using custom OpenAI embeddings
+                embeddings = CustomOpenAIEmbeddings(OPENAI_API_KEY)
+                
+                # Create ChromaDB vector store (no Rust compilation required)
+                self.vector_store = Chroma.from_documents(
+                    documents=texts,
+                    embedding=embeddings,
+                    persist_directory="./chroma_db"
+                )
+                logger.info("Vector store loaded successfully with ChromaDB")
             else:
                 logger.warning("No documents loaded or OpenAI API key missing")
                 
@@ -538,8 +590,49 @@ class EnhancedAstroBotAPI:
             'is_mock': True
         }
 
+    def _get_basic_ai_response(self, question, chart_data):
+        """Basic AI response without RAG when LangChain is not available"""
+        if not OPENAI_API_KEY:
+            return "Sorry, main abhi online nahi hun. Kripya thodi der baad try karein."
+        
+        try:
+            # Simple prompt without RAG context
+            system_prompt = f"""
+            Aap AstroRemedis ke Digital Pandit Ji hain — ek experienced astrologer jo KP (Krishnamurti Paddhati) astrology mein expert hain.
+            
+            Aapka style:
+            - Warm, spiritual, aur caring
+            - Practical remedies suggest karte hain
+            - Hindi mein respond karte hain
+            - Astrological insights provide karte hain
+            
+            User ka prashna: "{question}"
+            
+            Please provide a helpful astrological response in Hindi.
+            """
+            
+            response = openai.chat.completions.create(
+                model="gpt-4-turbo",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question}
+                ],
+                max_tokens=500,
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content.strip()
+            
+        except Exception as e:
+            logger.error(f"Error in basic AI response: {e}")
+            return "Sorry, main abhi online nahi hun. Kripya thodi der baad try karein."
+    
     def get_rag_response(self, question, chart_data):
         """Get AI response using RAG with chart data and KP rules"""
+        if not RAG_AVAILABLE:
+            # Fallback to basic OpenAI response without RAG
+            return self._get_basic_ai_response(question, chart_data)
+            
         if self.vector_store is None or not OPENAI_API_KEY:
             return "The knowledge base is not loaded or OpenAI API key is missing. Please check your configuration."
             
@@ -713,7 +806,7 @@ def health_check():
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "features": {
-            "rag_enabled": astro_api.vector_store is not None,
+            "rag_enabled": RAG_AVAILABLE and astro_api.vector_store is not None,
             "openai_enabled": OPENAI_API_KEY is not None,
             "prokerala_enabled": PROKERALA_CLIENT_ID is not None
         }

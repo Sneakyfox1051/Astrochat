@@ -14,14 +14,14 @@ geopy==2.4.0
 # AI and OpenAI integration
 openai>=1.6.1,<2.0.0
 
-# LangChain for RAG (Retrieval Augmented Generation)
+# LangChain for RAG (Retrieval Augmented Generation) - Using simpler alternatives
 langchain==0.1.0
 langchain-community==0.0.10
-langchain-openai==0.0.2
+# langchain-openai==0.0.2  # Commented out - causes tiktoken compilation issues
 
-# Vector store for RAG
+# Vector store for RAG - Using ChromaDB instead of FAISS (no Rust compilation)
 numpy>=1.24,<2.0
-faiss-cpu==1.12.0
+chromadb==0.4.15
 
 # Document processing for KP rules
 python-docx==0.8.11
