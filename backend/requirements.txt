@@ -1,19 +1,38 @@
+# Core Flask dependencies
 Flask==2.3.3
 Flask-CORS==4.0.0
+
+# HTTP requests and API calls
 requests==2.31.0
+
+# Environment configuration
 python-dotenv==1.0.0
+
+# Geocoding for place coordinates
 geopy==2.4.0
-matplotlib==3.7.2
-openai>=1.0.0
+
+# AI and OpenAI integration
+openai==1.3.0
+
+# LangChain for RAG (Retrieval Augmented Generation)
 langchain==0.1.0
 langchain-community==0.0.10
-langchain-openai==0.0.5
-# Ensure compatible wheels on Render; install numpy before faiss
+langchain-openai==0.0.2
+
+# Vector store for RAG
 numpy>=1.24,<2.0
 faiss-cpu==1.12.0
-pytz==2023.3
+
+# Document processing for KP rules
 python-docx==0.8.11
+
+# Google Sheets integration
 google-auth==2.33.0
 google-auth-oauthlib==1.2.0
 google-api-python-client==2.141.0
-gunicorn==21.2.0
+
+# Timezone handling
+pytz==2023.3
+
+# Production WSGI server
+gunicorn==22.0.0
