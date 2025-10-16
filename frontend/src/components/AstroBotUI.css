@@ -1,0 +1,170 @@
+.astrobot-container {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Fullscreen background layer (video) */
+.background-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 0;
+  background: url('../assets/Astro_Backgorund.png') center/cover no-repeat;
+  background-size: 108%;
+  /* Position tuned so the moon sits within the chat window area */
+  background-position: 78% 30%;
+  animation: bg-pan-zoom 45s ease-in-out infinite alternate;
+}
+
+/* Large, slow background gradient that subtly moves */
+/* removed unused gradient layer */
+
+@keyframes gradient-move {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-2%, -2%, 0) scale(1.02); }
+}
+
+/* Soft blobs that drift to add depth */
+/* removed unused blob layers */
+.bg-blob-1 { top: -10%; left: -10%; background: #3b82f6; animation-delay: 0s; }
+.bg-blob-2 { bottom: -15%; right: -10%; background: #22d3ee; animation-delay: 4s; }
+.bg-blob-3 { top: 20%; right: 10%; background: #a78bfa; animation-delay: 8s; }
+
+@keyframes blob-float {
+  0% { transform: translate3d(0,0,0) scale(1); }
+  100% { transform: translate3d(3%, -2%, 0) scale(1.08); }
+}
+
+/* Tiny twinkling stars */
+/* removed unused stars layer */
+
+@keyframes stars-twinkle {
+  0% { opacity: 0.10; }
+  100% { opacity: 0.18; }
+}
+
+.background-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.45) 70%);
+  pointer-events: none;
+}
+
+/* Zodiac symbols - golden, subtle glow, slow float */
+/* zodiac layer removed */
+
+/* Slow pan + gentle zoom for the background image */
+@keyframes bg-pan-zoom {
+  0% {
+    background-size: 108%;
+    background-position: 78% 30%;
+  }
+  100% {
+    background-size: 112%;
+    background-position: 74% 34%;
+  }
+}
+
+/* Slightly speed up on hover for an interactive feel */
+.astrobot-container:hover .background-layer {
+  animation-duration: 30s;
+}
+
+/* zodiac symbol styles removed */
+
+/* zodiac float animation removed */
+
+/* Black header */
+.top-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 90px;
+  background: linear-gradient(135deg, rgba(15, 15, 35, 0.55), rgba(26, 26, 46, 0.55));
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 6px 12px;
+  z-index: 5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+.header-logo {
+  margin-top: 29px;
+  height: 160px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  position: relative;
+  left: -30px;
+}
+
+/* Remove previous header/title visuals in favor of black header */
+
+.central-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 2rem 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .header-title {
+    font-size: 1.25rem;
+  }
+  
+  .header-section {
+    padding: 1rem 1rem 0.5rem;
+    gap: 0.75rem;
+  }
+  
+  .logo {
+    height: 50px;
+    max-width: 150px;
+  }
+  
+  .logo-container {
+    padding: 12px 20px;
+    border-radius: 12px;
+  }
+  
+  .central-section {
+    padding: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .header-title {
+    font-size: 1.75rem;
+  }
+  
+  .logo-container {
+    padding: 20px 28px;
+    border-radius: 20px;
+  }
+  
+  .header-section {
+    padding: 2rem 1rem 1rem;
+    gap: 1.25rem;
+  }
+}
+
+/* Larger desktops: slightly taller logo while keeping header compact */
+@media (min-width: 1024px) {
+  .top-header { height: 80px; }
+  .header-logo { height: 64px; }
+}

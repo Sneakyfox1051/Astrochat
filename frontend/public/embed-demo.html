@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AstroRemedis Chat Embed Demo</title>
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;background:linear-gradient(135deg,#0f0f23 0%, #1a1a2e 100%);min-height:100vh;color:#fff}
+    .hero{padding:60px 20px;max-width:900px;margin:0 auto;text-align:center}
+    .hero h1{margin:0 0 10px 0;font-size:36px}
+    .hero p{opacity:.85}
+    .card{max-width:900px;margin:30px auto 0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px}
+    code{background:rgba(255,255,255,.08);padding:2px 6px;border-radius:6px}
+    pre{background:rgba(0,0,0,.35);padding:12px;border-radius:12px;overflow:auto}
+    a{color:#ffb300}
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <h1>AstroRemedis Chat Embed Demo</h1>
+    <p>Click the round bubble at the bottom to open the embedded chat (540x868).</p>
+  </div>
+  <div class="card">
+    <h3>How to embed</h3>
+    <p>Add the following to your website:</p>
+    <pre><code>&lt;script src="https://YOUR_DOMAIN/embed-sdk.js" async&gt;&lt;/script&gt;
+&lt;script&gt;
+  window.AstroRemedisChat.init({
+    iframeUrl: 'https://YOUR_DOMAIN',
+    width: 540,
+    height: 868,
+    position: 'right'
+  });
+&lt;/script&gt;</code></pre>
+  </div>
+
+  <script src="./embed-sdk.js"></script>
+  <script>
+    // Robust init: wait until SDK attaches to window
+    document.addEventListener('DOMContentLoaded', function(){
+      var attempts = 0;
+      (function tryInit(){
+        attempts++;
+        if (window.AstroRemedisChat && typeof window.AstroRemedisChat.init === 'function') {
+          window.AstroRemedisChat.init({
+            iframeUrl: 'https://gilded-baklava-db352f.netlify.app',
+            width: 540,
+            height: 868,
+            position: 'right',
+            // Place Astro_Client_Final.png in frontend/public/ so it resolves at this path
+            iconUrl: 'https://gilded-baklava-db352f.netlify.app/Astro_Client_Final.png'
+          });
+        } else if (attempts < 50) {
+          setTimeout(tryInit, 100); // retry for up to ~5s
+        } else {
+          console.error('AstroRemedisChat SDK not loaded. Check /embed-sdk.js path.');
+        }
+      })();
+    });
+  </script>
+</body>
+</html>
+
+

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AstroBot Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #chartContainer { margin: 20px 0; border: 1px solid #ddd; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🔮 AstroBot Frontend Debug Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Backend Health Check</h2>
+        <button onclick="testHealth()">Test Backend Health</button>
+        <div id="healthResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Kundli → Chart (Sequential) Test</h2>
+        <button onclick="testSequentialGeneration()">Test Kundli then Chart</button>
+        <div id="seqResult"></div>
+        <div id="chartContainer"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Individual Tests</h2>
+        <button onclick="testKundliGeneration()">Test Kundli Only</button>
+        <button onclick="testChartGeneration()">Test Chart Only</button>
+        <div id="kundliResult"></div>
+        <div id="chartResult"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000';
+        
+        async function testHealth() {
+            const resultDiv = document.getElementById('healthResult');
+            resultDiv.innerHTML = '<div class="info">Testing backend health...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Backend is healthy!</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Backend health check failed: ${response.status}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testChartGeneration() {
+            const resultDiv = document.getElementById('chartResult');
+            const chartContainer = document.getElementById('chartContainer');
+            
+            resultDiv.innerHTML = '<div class="info">Testing chart generation...</div>';
+            chartContainer.innerHTML = '';
+            
+            const testData = {
+                name: "Test User",
+                dob: "1990-05-15",
+                tob: "14:30:00",
+                place: "Delhi, India",
+                timezone: "Asia/Kolkata"
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/chart`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Chart generated successfully!</div>
+                        <div class="info">Format: ${data.chart_data.format}</div>
+                        <div class="info">Has SVG: ${data.chart_data.svg_content ? 'Yes' : 'No'}</div>
+                        <div class="info">SVG Length: ${data.chart_data.svg_content ? data.chart_data.svg_content.length : 0} characters</div>
+                    `;
+                    
+                    if (data.chart_data.svg_content) {
+                        chartContainer.innerHTML = `
+                            <h3>Generated Chart:</h3>
+                            <div style="border: 1px solid #ccc; padding: 10px; background: white;">
+                                ${data.chart_data.svg_content}
+                            </div>
+                        `;
+                    }
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Chart generation failed</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testSequentialGeneration() {
+            const seqDiv = document.getElementById('seqResult');
+            const chartContainer = document.getElementById('chartContainer');
+            seqDiv.innerHTML = '<div class="info">Running Kundli → Chart sequential generation...</div>';
+            chartContainer.innerHTML = '';
+
+            const testData = {
+                name: "Test User",
+                dob: "1990-05-15",
+                tob: "14:30:00",
+                place: "Delhi, India",
+                timezone: "Asia/Kolkata"
+            };
+
+            try {
+                // 1) Kundli first
+                const kundliResp = await fetch(`${API_BASE_URL}/api/kundli`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testData)
+                });
+                const kundliData = await kundliResp.json();
+                if (!(kundliResp.ok && kundliData.success)) {
+                    seqDiv.innerHTML = `<div class="error">❌ Kundli failed</div><pre>${JSON.stringify(kundliData, null, 2)}</pre>`;
+                    return;
+                }
+                seqDiv.innerHTML = `<div class="success">✅ Kundli OK</div><div class="info">Ascendant: ${kundliData.chart_data.ascendant_sign_name || 'N/A'}</div>`;
+
+                // 2) Then Chart
+                const chartResp = await fetch(`${API_BASE_URL}/api/chart`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testData)
+                });
+                const chartData = await chartResp.json();
+                if (chartResp.ok && chartData.success) {
+                    seqDiv.innerHTML += `<div class="success">✅ Chart OK</div>`;
+                    if (chartData.chart_data.svg_content) {
+                        chartContainer.innerHTML = `
+                            <h3>Generated Chart:</h3>
+                            <div style="border: 1px solid #ccc; padding: 10px; background: white;">
+                                ${chartData.chart_data.svg_content}
+                            </div>`;
+                    } else {
+                        seqDiv.innerHTML += `<div class="error">No SVG content returned</div>`;
+                    }
+                } else {
+                    seqDiv.innerHTML += `<div class="error">❌ Chart failed</div><pre>${JSON.stringify(chartData, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                seqDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testKundliGeneration() {
+            const resultDiv = document.getElementById('kundliResult');
+            
+            resultDiv.innerHTML = '<div class="info">Testing Kundli generation...</div>';
+            
+            const testData = {
+                name: "Test User",
+                dob: "1990-05-15",
+                tob: "14:30:00",
+                place: "Delhi, India",
+                timezone: "Asia/Kolkata"
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/kundli`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Kundli generated successfully!</div>
+                        <div class="info">Ascendant: ${data.chart_data.ascendant_sign_name || 'N/A'}</div>
+                        <div class="info">Planets mapped: ${Object.keys(data.chart_data.planets).length} houses</div>
+                        <pre>${JSON.stringify(data.chart_data.planets, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Kundli generation failed</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Auto-run health check on page load
+        window.onload = function() {
+            testHealth();
+        };
+    </script>
+</body>
+</html>
+

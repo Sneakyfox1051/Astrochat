@@ -1,0 +1,272 @@
+.bottom-navigation {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 108px; /* taller to fit powered-by row */
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+  display: flex;
+  flex-direction: column; /* two rows */
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0 0 8px 0;
+  z-index: 100;
+  box-shadow: 
+    0 -8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.nav-row{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  height: 72px;
+}
+.nav-powered-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height: 36px;
+}
+.powered-by-evoke { font-size: 12px; color: rgba(255,255,255,0.8); }
+.powered-by-evoke a{ color:#ffb300; text-decoration:none; }
+.powered-by-evoke a:hover{ text-decoration:underline; }
+
+.nav-icon {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.nav-icon:hover {
+  transform: scale(1.05);
+}
+
+.icon-container {
+  width: 40px;
+  height: 40px;
+  background: transparent; /* remove gray/black background */
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  border: none; /* remove border shadow */
+  backdrop-filter: none; /* no blur background */
+}
+
+.icon-container:hover {
+  background: transparent;
+  transform: scale(1.05);
+  box-shadow: none;
+}
+
+.robot-icon,
+.menu-icon,
+.close-icon,
+.refresh-icon {
+  width: 20px;
+  height: 20px;
+  color: #ffffff;
+}
+
+/* Center Button */
+.nav-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.nav-center-inner{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.center-button {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #e46b00 0%, #ff8800 100%); /* golden/orange only */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 
+    0 8px 32px rgba(255, 179, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.center-button:hover {
+  transform: scale(1.05);
+  box-shadow: 
+    0 12px 40px rgba(255, 179, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.center-button.active {
+  background: linear-gradient(135deg, #e46b00 0%, #ff8800 100%);
+  box-shadow: 
+    0 12px 48px rgba(255, 179, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.center-icon {
+  position: relative;
+  z-index: 2;
+}
+
+.mic-icon, .chat-icon {
+  width: 24px;
+  height: 24px;
+  color: #ffffff;
+}
+
+/* Ripple Effect */
+.ripple-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+
+.ripple-1 {
+  animation: ripple-animation 2s ease-in-out infinite;
+}
+
+.ripple-2 {
+  animation: ripple-animation 2s ease-in-out infinite 0.5s;
+}
+
+.ripple-3 {
+  animation: ripple-animation 2s ease-in-out infinite 1s;
+}
+
+@keyframes ripple-animation {
+  0% {
+    width: 20px;
+    height: 20px;
+    opacity: 0.8;
+  }
+  50% {
+    width: 40px;
+    height: 40px;
+    opacity: 0.4;
+  }
+  100% {
+    width: 60px;
+    height: 60px;
+    opacity: 0;
+  }
+}
+
+/* Active state ripple */
+.center-button.active .ripple {
+  animation-duration: 1s;
+}
+
+.center-button.active .ripple-1 {
+  animation-delay: 0s;
+}
+
+.center-button.active .ripple-2 {
+  animation-delay: 0.2s;
+}
+
+.center-button.active .ripple-3 {
+  animation-delay: 0.4s;
+}
+
+/* Replace absolute powered-by placement with centered variant under the button */
+.powered-by-evoke { font-size: 11px; color: rgba(255,255,255,0.7); }
+.powered-by-evoke a{ color:#ffb300; text-decoration:none; }
+.powered-by-evoke a:hover{ text-decoration:underline; }
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .bottom-navigation {
+    height: 70px;
+    padding: 0 1rem;
+  }
+  .nav-icon {
+    width: 45px;
+    height: 45px;
+  }
+  .icon-container {
+    width: 35px;
+    height: 35px;
+    border-radius: 10px;
+  }
+  .robot-icon,
+  .menu-icon,
+  .close-icon,
+  .refresh-icon {
+    width: 18px;
+    height: 18px;
+  }
+  .center-button {
+    width: 55px;
+    height: 55px;
+  }
+  .mic-icon {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+@media (min-width: 768px) {
+  .bottom-navigation {
+    height: 90px;
+    padding: 0 3rem;
+  }
+  .nav-icon {
+    width: 55px;
+    height: 55px;
+  }
+  .icon-container {
+    width: 45px;
+    height: 45px;
+    border-radius: 14px;
+  }
+  .robot-icon,
+  .menu-icon,
+  .close-icon,
+  .refresh-icon {
+    width: 22px;
+    height: 22px;
+  }
+  .center-button {
+    width: 65px;
+    height: 65px;
+  }
+  .mic-icon {
+    width: 26px;
+    height: 26px;
+  }
+}

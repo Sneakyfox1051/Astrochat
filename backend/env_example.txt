@@ -1,0 +1,32 @@
+# AstroBot Backend Configuration
+# Copy this file to .env and fill in your actual API credentials
+
+# ProKerala API Credentials (Required for Kundli generation)
+PROKERALA_CLIENT_ID=your_client_id_here
+PROKERALA_CLIENT_SECRET=your_client_secret_here
+
+# OpenAI API Key (Required for RAG and enhanced AI responses)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Flask Configuration
+FLASK_ENV=development
+FLASK_DEBUG=True
+
+# Google Sheets Authentication
+# Preferred: Service Account (no refresh token required)
+# Option A) Inline JSON: place full key JSON here (quote and escape newlines)
+GOOGLE_SERVICE_ACCOUNT_JSON=
+# Option B) File path to the JSON key on disk
+GOOGLE_SERVICE_ACCOUNT_FILE=
+
+# Fallback option: OAuth client with refresh token (if not using service account)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_TOKEN_URI=https://oauth2.googleapis.com/token
+# Required when using OAuth refresh token
+GOOGLE_REFRESH_TOKEN=
+
+# Google Sheets target
+GOOGLE_SHEETS_SPREADSHEET_ID=
+GOOGLE_SHEETS_SPREADSHEET_NAME=AstroRemedis Data
+GOOGLE_SHEETS_WORKSHEET_NAME=Sheet1

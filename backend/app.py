@@ -1,0 +1,1131 @@
+"""
+AstroRemedis Backend API - Enhanced Astrology Chatbot
+
+This is the main backend server for AstroRemedis, providing:
+- AI-powered astrology consultations using OpenAI GPT-4
+- Kundli chart generation via ProKerala API
+- RAG (Retrieval Augmented Generation) with KP astrology rules
+- Google Sheets integration for data storage
+- Real-time chat with spiritual Pandit Ji persona
+
+Key Features:
+- Service Account authentication (no refresh tokens needed)
+- Realistic and logical astrological predictions
+- Spiritual, warm communication style
+- Automatic chart generation and display
+- Form data collection and storage
+
+Author: AstroRemedis Development Team
+Version: 2.0.0
+Last Updated: 2024
+"""
+
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+import requests
+import json
+import os
+from datetime import datetime, timedelta
+from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
+import logging
+import pytz
+import openai
+from dotenv import load_dotenv
+from googleapiclient.errors import HttpError
+
+# LangChain imports
+from langchain_community.document_loaders import Docx2txtLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_openai import OpenAIEmbeddings
+
+# Environment Configuration
+# Load environment variables from backend/.env file
+ENV_PATH = os.path.join(os.path.dirname(__file__), '.env')
+# Force override to ensure backend/.env values are used even if shell has different vars
+ENV_LOADED = load_dotenv(ENV_PATH, override=True)
+
+app = Flask(__name__)
+CORS(app)  # Enable CORS for frontend communication
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# API Configuration
+# ProKerala API credentials for Kundli chart generation
+PROKERALA_CLIENT_ID = os.getenv('PROKERALA_CLIENT_ID')
+PROKERALA_CLIENT_SECRET = os.getenv('PROKERALA_CLIENT_SECRET')
+
+# OpenAI API key for AI-powered astrology consultations
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+# Google Sheets configuration (using Service Account authentication)
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
+GOOGLE_TOKEN_URI = os.getenv('GOOGLE_TOKEN_URI', 'https://oauth2.googleapis.com/token')
+GOOGLE_REFRESH_TOKEN = os.getenv('GOOGLE_REFRESH_TOKEN')
+GOOGLE_SHEETS_SPREADSHEET_NAME = os.getenv('GOOGLE_SHEETS_SPREADSHEET_NAME', 'AstroRemedis Data')
+GOOGLE_SHEETS_WORKSHEET_NAME = os.getenv('GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')
+
+try:
+    from google_sheets import append_form_submission, diagnose_connection
+except Exception as _e:
+    append_form_submission = None
+    diagnose_connection = None
+
+# Constants
+DOC_FILES = ["KP_RULE_1.docx", "KP_RULE_2.docx", "KP_RULE_3.docx"]
+DEFAULT_LAT, DEFAULT_LON = 19.0760, 72.8777  # Mumbai Coordinates
+DEFAULT_TZ = 'Asia/Kolkata'
+
+# Set OpenAI API key
+if OPENAI_API_KEY:
+    openai.api_key = OPENAI_API_KEY
+
+class EnhancedAstroBotAPI:
+    """Enhanced API class with RAG and advanced astrology features"""
+    
+    def __init__(self):
+        self.access_token = None
+        self.token_expiry = None
+        self.vector_store = None
+        self._load_vector_store()
+    
+    def _load_vector_store(self):
+        """Load and process Word documents for RAG"""
+        try:
+            all_docs = []
+            docs_path = os.path.join(os.path.dirname(__file__), '..', 'docs')
+            
+            for doc_file in DOC_FILES:
+                file_path = os.path.join(docs_path, doc_file)
+                if os.path.exists(file_path):
+                    try:
+                        loader = Docx2txtLoader(file_path)
+                        all_docs.extend(loader.load())
+                        logger.info(f"Loaded document: {doc_file}")
+                    except Exception as e:
+                        logger.error(f"Error loading {doc_file}: {e}")
+                else:
+                    logger.warning(f"Document file not found at {file_path}")
+
+            if all_docs and OPENAI_API_KEY:
+                text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+                texts = text_splitter.split_documents(all_docs)
+                embeddings = OpenAIEmbeddings()
+                self.vector_store = FAISS.from_documents(texts, embeddings)
+                logger.info("Vector store loaded successfully")
+            else:
+                logger.warning("No documents loaded or OpenAI API key missing")
+                
+        except Exception as e:
+            logger.error(f"Error loading vector store: {e}")
+            self.vector_store = None
+    
+    def get_access_token(self):
+        """Get access token from ProKerala API with enhanced error handling"""
+        logger.info(f"PROKERALA_CLIENT_ID set: {bool(PROKERALA_CLIENT_ID)}")
+        logger.info(f"PROKERALA_CLIENT_SECRET set: {bool(PROKERALA_CLIENT_SECRET)}")
+        
+        if not PROKERALA_CLIENT_ID or not PROKERALA_CLIENT_SECRET:
+            logger.error("ProKerala credentials not found in environment variables")
+            return None
+            
+        if self.access_token and self.token_expiry and datetime.now() < self.token_expiry:
+            return self.access_token
+            
+        token_url = "https://api.prokerala.com/token"
+        data = {
+            "grant_type": "client_credentials",
+            "client_id": PROKERALA_CLIENT_ID,
+            "client_secret": PROKERALA_CLIENT_SECRET,
+        }
+
+        try:
+            response = requests.post(token_url, data=data)
+            
+            # Enhanced Authentication Error Check
+            if response.status_code in [400, 401]:
+                error_details = response.json().get('error_description', response.text)
+                logger.error(f"Prokerala AUTH Failed (Status: {response.status_code}). Details: {error_details}")
+                return None
+
+            response.raise_for_status()
+            token_data = response.json()
+            self.access_token = token_data["access_token"]
+            # Set expiry time (assuming 1 hour token validity)
+            self.token_expiry = datetime.now().replace(microsecond=0, second=0, minute=0) + \
+                              timedelta(hours=1)
+            return self.access_token
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network Error during Prokerala Token request: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unknown Error during Prokerala Token request: {e}")
+            return None
+
+    def get_coordinates(self, place_name):
+        """Get coordinates for a place name with fallback"""
+        geolocator = Nominatim(user_agent="astrobot_app")
+        try:
+            location = geolocator.geocode(place_name, timeout=10)
+            if location:
+                return location.latitude, location.longitude
+        except Exception as e:
+            logger.warning(f"Geocoding failed for '{place_name}': {e}")
+        return DEFAULT_LAT, DEFAULT_LON  # Fallback to Mumbai
+
+    def _generate_mock_chart_data(self, name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str):
+        """Generate mock chart data for testing when API credentials are not available"""
+        import random
+        
+        # Mock planetary positions
+        planets_in_house = {}
+        for house in range(1, 13):
+            planets_in_house[house] = []
+        
+        # Assign some planets to random houses for demo
+        planet_codes = ['Su', 'Mo', 'Ma', 'Me', 'Ju', 'Ve', 'Sa', 'Ra', 'Ke']
+        assigned_planets = random.sample(planet_codes, 5)  # Assign 5 planets randomly
+        
+        for planet in assigned_planets:
+            house = random.randint(1, 12)
+            planets_in_house[house].append(planet)
+        
+        # Mock ascendant sign
+        ascendant_signs = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 
+                          'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
+        ascendant_sign = random.randint(1, 12)
+        ascendant_sign_name = ascendant_signs[ascendant_sign - 1]
+        
+        # Mock Mangal Dosha (30% chance of being present)
+        mangal_dosha_present = random.random() < 0.3
+        
+        return {
+            "name": name,
+            "ascendant_sign": ascendant_sign,
+            "ascendant_sign_name": ascendant_sign_name,
+            "planets": planets_in_house,
+            "mangal_dosha": {
+                "is_present": mangal_dosha_present,
+                "description": "Mangal Dosha present - may affect marriage timing" if mangal_dosha_present 
+                              else "Mangal Dosha absent - favorable for marriage"
+            },
+            "birth_location": pob_text,
+            "coordinates": {
+                "latitude": latitude,
+                "longitude": longitude
+            },
+            "timezone": timezone_str,
+            "is_mock_data": True
+        }
+
+    def calculate_chart_data(self, name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str):
+        """Calculate comprehensive chart data including Mangal Dosha"""
+        access_token = self.get_access_token()
+        if not access_token:
+            # Return mock data for testing when API credentials are not available
+            logger.warning("ProKerala API credentials not available, returning mock data")
+            return self._generate_mock_chart_data(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+
+        try:
+            # Create localized datetime
+            local_tz = pytz.timezone(timezone_str)
+            birth_datetime = datetime.combine(dob_date, tob_time)
+            localized_dt = local_tz.localize(birth_datetime)
+            
+            # Use RAW ISO format string
+            api_datetime_str = localized_dt.isoformat()
+
+        except Exception as e:
+            logger.error(f"Timezone or Date/Time Error: {e}")
+            return None
+
+        headers = {"Authorization": f"Bearer {access_token}"}
+        base_url = "https://api.prokerala.com/v2/astrology"
+        
+        common_params = {
+            'ayanamsa': 5,  # KP Astrology (Krishnamurti Paddhati)
+            'coordinates': f"{latitude},{longitude}",
+            'datetime': api_datetime_str,
+            'chart_style': 'north-indian'  # North Indian chart style
+        }
+        
+        # Initialize data containers
+        api_data = {
+            'planet_positions': [],
+            'mangal_dosha': {},
+            'birth_details': {},
+            'kundli': {},
+            'chart': {},
+            'yoga': {},
+            'dasha_periods': {},
+            'sade_sati': {}
+        }
+        
+        # Fetch Planet Positions
+        try:
+            planets_url = f"{base_url}/planet-position"
+            planets_response = requests.get(planets_url, headers=headers, params=common_params)
+            planets_response.raise_for_status()
+            api_data['planet_positions'] = planets_response.json().get('data', {}).get('planet_position', [])
+            logger.info("✅ Planet Positions fetched successfully")
+        except Exception as e:
+            logger.error(f"Error fetching Planet Positions: {e}")
+            return None
+            
+        # Fetch Birth Details
+        try:
+            birth_details_url = f"{base_url}/birth-details"
+            birth_response = requests.get(birth_details_url, headers=headers, params=common_params)
+            birth_response.raise_for_status()
+            api_data['birth_details'] = birth_response.json().get('data', {})
+            logger.info("✅ Birth Details fetched successfully")
+        except Exception as e:
+            logger.error(f"Error fetching Birth Details: {e}")
+            api_data['birth_details'] = {}
+            
+        # Fetch Mangal Dosha
+        try:
+            mangaldosha_url = f"{base_url}/mangal-dosha"
+            md_response = requests.get(mangaldosha_url, headers=headers, params=common_params)
+            md_response.raise_for_status()
+            api_data['mangal_dosha'] = md_response.json().get('data', {})
+            logger.info("✅ Mangal Dosha fetched successfully")
+        except Exception as e:
+            logger.error(f"Error fetching Mangal Dosha: {e}")
+            api_data['mangal_dosha'] = {"is_present": False, "description": "Mangal Dosha calculation failed."}
+            
+        # Fetch Kundli
+        try:
+            kundli_url = f"{base_url}/kundli"
+            kundli_response = requests.get(kundli_url, headers=headers, params=common_params)
+            kundli_response.raise_for_status()
+            api_data['kundli'] = kundli_response.json().get('data', {})
+            logger.info("✅ Kundli fetched successfully")
+        except Exception as e:
+            logger.error(f"Error fetching Kundli: {e}")
+            api_data['kundli'] = {}
+            
+        # Use Kundli data for chart (since chart endpoint has parameter issues)
+        try:
+            # The kundli data already contains chart information
+            kundli_data = api_data.get('kundli', {})
+            api_data['chart'] = {
+                'kundli_data': kundli_data,
+                'format': 'json',
+                'chart_type': 'north-indian',
+                'ayanamsa': 5,
+                'astrology_system': 'KP'
+            }
+            logger.info("✅ Chart data extracted from Kundli successfully")
+        except Exception as e:
+            logger.error(f"Error processing Chart data: {e}")
+            api_data['chart'] = {}
+            
+        # Fetch Yoga
+        try:
+            yoga_url = f"{base_url}/yoga"
+            yoga_response = requests.get(yoga_url, headers=headers, params=common_params)
+            yoga_response.raise_for_status()
+            api_data['yoga'] = yoga_response.json().get('data', {})
+            logger.info("✅ Yoga fetched successfully")
+        except Exception as e:
+            logger.error(f"Error fetching Yoga: {e}")
+            api_data['yoga'] = {}
+            
+        # Fetch Dasha Periods
+        try:
+            dasha_url = f"{base_url}/dasha-periods"
+            dasha_response = requests.get(dasha_url, headers=headers, params=common_params)
+            dasha_response.raise_for_status()
+            api_data['dasha_periods'] = dasha_response.json().get('data', {})
+            logger.info("✅ Dasha Periods fetched successfully")
+        except Exception as e:
+            logger.error(f"Error fetching Dasha Periods: {e}")
+            api_data['dasha_periods'] = {}
+            
+        # Fetch Sade Sati
+        try:
+            sade_sati_url = f"{base_url}/sade-sati"
+            sade_sati_response = requests.get(sade_sati_url, headers=headers, params=common_params)
+            sade_sati_response.raise_for_status()
+            api_data['sade_sati'] = sade_sati_response.json().get('data', {})
+            logger.info("✅ Sade Sati fetched successfully")
+        except Exception as e:
+            logger.error(f"Error fetching Sade Sati: {e}")
+            api_data['sade_sati'] = {}
+
+        # Process Data into CHART_DATA format
+        planets_in_house = {}
+        ascendant_sign = None
+        ascendant_sign_name = "N/A"
+        
+        planet_code_map = {
+            'Sun': 'Su', 'Moon': 'Mo', 'Mars': 'Ma', 'Mercury': 'Me', 
+            'Jupiter': 'Ju', 'Venus': 'Ve', 'Saturn': 'Sa', 
+            'Rahu': 'Ra', 'Ketu': 'Ke', 'Lagna': 'La'
+        }
+
+        # Find Lagna/Ascendant
+        lagna_planet = next((p for p in api_data['planet_positions'] if p.get('id') == 100), None)
+        if lagna_planet:
+            ascendant_sign = lagna_planet.get('rasi', {}).get('id')
+            ascendant_sign_name = lagna_planet.get('rasi', {}).get('name')
+                
+        # Map Planets to Houses
+        if ascendant_sign is not None:
+            for planet in api_data['planet_positions']:
+                sign_id = planet.get('rasi', {}).get('id')
+                planet_name = planet.get('name')
+                
+                # House = (Planet Sign - Ascendant Sign + 12) % 12 + 1
+                house_num = (sign_id - ascendant_sign + 12) % 12 + 1
+                
+                planet_code = planet_code_map.get(planet_name, planet_name[:2])
+                
+                if house_num not in planets_in_house:
+                    planets_in_house[house_num] = []
+                if planet_code not in planets_in_house[house_num]:
+                     planets_in_house[house_num].append(planet_code)
+        
+        # Final CHART_DATA Structure with comprehensive ProKerala data
+        final_chart_data = {
+            "name": name,
+            "ascendant_sign": ascendant_sign or 1,
+            "ascendant_sign_name": ascendant_sign_name,
+            "planets": planets_in_house,
+            "birth_location": pob_text,
+            "coordinates": {
+                "latitude": latitude,
+                "longitude": longitude
+            },
+            "timezone": timezone_str,
+            
+            # ProKerala API Data
+            "prokerala_data": {
+                "birth_details": api_data['birth_details'],
+                "mangal_dosha": api_data['mangal_dosha'],
+                "kundli": api_data['kundli'],
+                "chart": api_data['chart'],
+                "yoga": api_data['yoga'],
+                "dasha_periods": api_data['dasha_periods'],
+                "sade_sati": api_data['sade_sati'],
+                "planet_positions": api_data['planet_positions']
+            },
+            
+            # Chart Configuration
+            "chart_config": {
+                "ayanamsa": 5,
+                "chart_style": "north-indian",
+                "astrology_system": "KP"
+            },
+            
+            # Legacy format for backward compatibility
+            "mangal_dosha": {
+                "is_present": api_data['mangal_dosha'].get('is_present', False),
+                "description": api_data['mangal_dosha'].get('description', "Mangal Dosha calculation complete.")
+            }
+        }
+        
+        return final_chart_data
+
+    def generate_chart_only(self, name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str):
+        """Generate only the visual chart using ProKerala chart endpoint"""
+        access_token = self.get_access_token()
+        logger.info(f"Access token status: {'Available' if access_token else 'Not available'}")
+        
+        # Force use of real API for testing
+        if not access_token:
+            logger.warning("ProKerala API credentials not available, trying to get new token")
+            # Try to get a fresh token
+            access_token = self.get_access_token()
+            if not access_token:
+                logger.error("Still no access token available, returning mock chart")
+                return self._generate_mock_chart(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+
+        try:
+            # Create localized datetime
+            local_tz = pytz.timezone(timezone_str)
+            birth_datetime = datetime.combine(dob_date, tob_time)
+            local_datetime = local_tz.localize(birth_datetime)
+            api_datetime_str = local_datetime.strftime('%Y-%m-%dT%H:%M:%S%z')
+            if api_datetime_str.endswith('+0000'):
+                api_datetime_str = api_datetime_str.replace('+0000', 'Z')
+            elif '+' in api_datetime_str:
+                api_datetime_str = api_datetime_str[:-2] + ':' + api_datetime_str[-2:]
+
+            logger.info(f"API DateTime: {api_datetime_str}")
+            logger.info(f"Coordinates: {latitude}, {longitude}")
+            
+            headers = {"Authorization": f"Bearer {access_token}"}
+            base_url = "https://api.prokerala.com/v2/astrology"
+            
+            # Use ProKerala Chart endpoint (SVG format)
+            try:
+                chart_params = {
+                    'ayanamsa': 5,  # KP Astrology
+                    'coordinates': f"{latitude},{longitude}",
+                    'datetime': api_datetime_str,
+                    'chart_type': 'rasi',  # Simple string value as per API docs
+                    'chart_style': 'north-indian',
+                    'format': 'svg'
+                }
+                
+                logger.info(f"Chart URL: {base_url}/chart")
+                logger.info(f"Chart Params: {chart_params}")
+                
+                chart_url = f"{base_url}/chart"
+                chart_response = requests.get(chart_url, headers=headers, params=chart_params)
+                
+                logger.info(f"Chart Response Status: {chart_response.status_code}")
+                logger.info(f"Chart Response Content-Type: {chart_response.headers.get('content-type', '')}")
+                
+                if chart_response.status_code != 200:
+                    logger.error(f"Chart API Error: {chart_response.text}")
+                    return self._generate_mock_chart(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+                
+                # Check if response is SVG
+                content_type = chart_response.headers.get('content-type', '')
+                if 'svg' in content_type:
+                    chart_data = {
+                        'svg_content': chart_response.text,
+                        'format': 'svg',
+                        'chart_type': 'north-indian',
+                        'ayanamsa': 5,
+                        'astrology_system': 'KP'
+                    }
+                    logger.info("✅ SVG Chart fetched successfully from ProKerala Chart endpoint")
+                    return chart_data
+                else:
+                    # Fallback to JSON response
+                    chart_data = chart_response.json().get('data', {})
+                    chart_data.update({
+                        'format': 'json',
+                        'chart_type': 'north-indian',
+                        'ayanamsa': 5,
+                        'astrology_system': 'KP'
+                    })
+                    logger.info("✅ Chart data fetched successfully (JSON format) from ProKerala Chart endpoint")
+                    return chart_data
+            except Exception as e:
+                logger.error(f"Error fetching Chart from ProKerala Chart endpoint: {e}")
+                return self._generate_mock_chart(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+                
+        except Exception as e:
+            logger.error(f"Timezone or Date/Time Error: {e}")
+            return self._generate_mock_chart(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+
+    def _generate_mock_chart(self, name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str):
+        """Generate mock chart for testing"""
+        return {
+            'svg_content': f'''<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="200" cy="200" r="180" fill="none" stroke="#333" stroke-width="2"/>
+                <text x="200" y="50" text-anchor="middle" font-size="16" font-weight="bold">🌟 {name}'s Kundli Chart</text>
+                <text x="200" y="80" text-anchor="middle" font-size="12">KP Astrology (Ayanamsa 5)</text>
+                <text x="200" y="100" text-anchor="middle" font-size="12">North Indian Style</text>
+                <text x="200" y="130" text-anchor="middle" font-size="10">Birth: {dob_date} {tob_time}</text>
+                <text x="200" y="150" text-anchor="middle" font-size="10">Place: {pob_text}</text>
+                <text x="200" y="350" text-anchor="middle" font-size="12" fill="#666">Mock Chart - Real chart will be generated with ProKerala API</text>
+            </svg>''',
+            'format': 'svg',
+            'chart_type': 'north-indian',
+            'ayanamsa': 5,
+            'astrology_system': 'KP',
+            'is_mock': True
+        }
+
+    def get_rag_response(self, question, chart_data):
+        """Get AI response using RAG with chart data and KP rules"""
+        if self.vector_store is None or not OPENAI_API_KEY:
+            return "The knowledge base is not loaded or OpenAI API key is missing. Please check your configuration."
+            
+        try:
+            retriever = self.vector_store.as_retriever(search_kwargs={"k": 3})
+            relevant_docs = retriever.invoke(question)
+            # Concise RAG context (cap total size to avoid token limits)
+            raw_docs = "\n\n".join([doc.page_content for doc in relevant_docs])
+            context_from_docs = raw_docs[:2000]  # cap to ~2k chars
+
+            # Build a compact chart context to reduce prompt size
+            def build_compact_chart(src):
+                try:
+                    planets = src.get('planets') or {}
+                    compact_planets = {}
+                    for house, plist in planets.items():
+                        # keep max 5 planet codes per house
+                        compact_planets[str(house)] = (plist or [])[:5]
+
+                    prokerala = src.get('prokerala_data') or {}
+                    birth_details = prokerala.get('birth_details') or {}
+                    mangal = src.get('mangal_dosha') or prokerala.get('mangal_dosha') or {}
+
+                    compact = {
+                        'name': src.get('name') or 'User',
+                        'ascendant_sign': src.get('ascendant_sign'),
+                        'ascendant_sign_name': src.get('ascendant_sign_name'),
+                        'planets': compact_planets,
+                        'mangal_dosha': {
+                            'is_present': bool(mangal.get('is_present', mangal.get('has_dosha', False))),
+                            'description': (mangal.get('description') or '')[:200]
+                        },
+                        'birth_location': src.get('birth_location'),
+                        'coordinates': src.get('coordinates'),
+                        'timezone': src.get('timezone'),
+                        'chart_config': src.get('chart_config') or {
+                            'ayanamsa': 5,
+                            'chart_style': 'north-indian',
+                            'astrology_system': 'KP'
+                        },
+                        'summary': {
+                            'has_chart_svg': bool((src or {}).get('svg_content')),
+                            'has_prokerala': bool(prokerala)
+                        }
+                    }
+                    return compact
+                except Exception:
+                    return {'name': src.get('name', 'User')}
+
+            compact_chart = build_compact_chart(chart_data or {})
+            chart_context = json.dumps(compact_chart, ensure_ascii=False)
+            if len(chart_context) > 3000:
+                chart_context = chart_context[:3000]
+
+            system_prompt = f"""
+            Aap AstroRemedis ke Digital Pandit Ji hain — ek anubhavi, vinamra, aur dayalu KP Jyotishacharya.
+            Aapka andaaz garamjoshi bhara, dhairya-purn, aur aadharbhut spiritual hona chahiye - bilkul ek asli Pandit ji ki tarah.
+            
+            Nirdesh (bahut zaroori):
+            - Hinglish (Roman) mein likhein; hamesha 'Aap/Aapka' ka istemal karein.
+            - Zubaan naram, samvedansheel, aur salahkar ho; dar ya nishchaywaadi bhasha se bachein.
+            - Predictions ko REALISTIC aur LOGICAL rakhein. Birth date check karein aur sensible timeline dein.
+            - Shaadi ke predictions: agar user abhi bahut young hai, to realistic age batayein (25-30 years minimum for marriage predictions).
+            - Predictions balanced way mein dein: exact dates ke bajay practical range/phase batayein (e.g., "2027 ke aaspaas", "2025 ke end tak").
+            - Shuru mein emotional connect banayein: "Bohot achha prashn pucha aapne", "Dekhiye, grah sthiti kuch aisi hai ki..."
+            - KP/Vedic logic ka sankshipt hawala dein (1-2 line) bina technical overload ke.
+            - ZAROORI: Ant mein zaroori upchar (remedies) suggest karein jaise mantra, daan, puja, gemstone etc.
+            - Ant mein 1 halka, samayik follow-up sawal poochhein taaki baatcheet prakritik bane.
+            - Saahas vardhak pangti zaroor dein: "Aap chinta na karein, sab theek hoga."
+            
+            User Birth Details: DOB={chart_data.get('birth_location', 'N/A')} - DHYAAN DEIN: Age calculate karke realistic predictions dein!
+            
+            Context - Birth Chart Data for '{chart_data['name']}':
+            {chart_context}
+            
+            KP Rules (brief context):
+            {context_from_docs}
+            
+            Ab, upar ke niyamon ko dhyaan mein rakhte hue, is prashna ka saaf, garamjoshi bhara, realistic aur vyavaharik uttar dein (predictions + upchar):
+            "{question}"
+            """
+            
+            try:
+                response = openai.chat.completions.create(
+                    model="gpt-4-turbo",
+                    messages=[{"role": "user", "content": system_prompt}]
+                )
+                return response.choices[0].message.content
+            except Exception as primary_error:
+                # Fallback: smaller model and even shorter prompt to avoid rate/context limits
+                try:
+                    short_prompt = system_prompt
+                    if len(short_prompt) > 6000:
+                        short_prompt = short_prompt[:6000]
+                    response = openai.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[{"role": "user", "content": short_prompt}]
+                    )
+                    return response.choices[0].message.content
+                except Exception as fallback_error:
+                    logger.error(f"OpenAI error primary: {primary_error}; fallback: {fallback_error}")
+                    return "Sorry, I encountered a temporary AI capacity issue. Please ask again in a few seconds."
+            
+        except Exception as e:
+            logger.error(f"Error in RAG response: {e}")
+            return f"Sorry, I encountered an error with the AI model: {e}"
+
+    def generate_ai_response(self, user_message, chart_data=None):
+        """Generate AI response - use RAG if chart data available, otherwise basic response"""
+        if chart_data and self.vector_store and OPENAI_API_KEY:
+            return self.get_rag_response(user_message, chart_data)
+        else:
+            # Fallback to basic astrology responses
+            return self._get_basic_response(user_message)
+    
+    def _get_basic_response(self, user_message):
+        """Basic astrology response when RAG is not available"""
+        user_message_lower = user_message.lower()
+        
+        if any(word in user_message_lower for word in ['hello', 'hi', 'namaste', 'namaskar', 'pranam']):
+            return "Namaste! 🙏 Main Pandit ji hun. Aapka swagat hai AstroRemedis mein!"
+        
+        if any(word in user_message_lower for word in ['kundli', 'horoscope', 'chart', 'birth chart']):
+            return "Aapka Kundli analysis karne ke liye, main aapke birth details chahiye. Kripya apna date of birth, time of birth aur place of birth batayiye."
+        
+        astrology_keywords = {
+            'marriage': 'Marriage ke liye main aapke 7th house aur Venus position check karunga. Birth details chahiye.',
+            'career': 'Career guidance ke liye main aapke 10th house aur Saturn position analyze karunga.',
+            'health': 'Health ke liye main aapke 6th house aur Mars position check karunga.',
+            'finance': 'Finance aur wealth ke liye main aapke 2nd house aur Jupiter position analyze karunga.',
+            'education': 'Education ke liye main aapke 5th house aur Mercury position check karunga.',
+            'travel': 'Travel ke liye main aapke 9th house aur Jupiter position analyze karunga.',
+            'property': 'Property ke liye main aapke 4th house aur Moon position check karunga.',
+            'children': 'Children ke liye main aapke 5th house aur Jupiter position analyze karunga.'
+        }
+        
+        for keyword, response in astrology_keywords.items():
+            if keyword in user_message_lower:
+                return response
+        
+        return "Namaste! 🙏 Main aapki astrology-related queries solve kar sakta hun. Aap kya jaanna chahte hain? Kundli, horoscope, marriage, career, health, ya koi aur topic?"
+
+# Initialize enhanced API instance
+astro_api = EnhancedAstroBotAPI()
+
+@app.route('/')
+def home():
+    """Home endpoint"""
+    return jsonify({
+        "message": "Enhanced AstroBot API is running!",
+        "version": "2.0.0",
+        "features": [
+            "RAG (Retrieval Augmented Generation)",
+            "LangChain Integration",
+            "Mangal Dosha Calculation",
+            "Advanced AI Responses",
+            "Timezone Support"
+        ],
+        "endpoints": {
+            "chat": "/api/chat",
+            "kundli": "/api/kundli",
+            "analyze": "/api/analyze",
+            "health": "/api/health"
+        }
+    })
+
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "features": {
+            "rag_enabled": astro_api.vector_store is not None,
+            "openai_enabled": OPENAI_API_KEY is not None,
+            "prokerala_enabled": PROKERALA_CLIENT_ID is not None
+        }
+    })
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    """Enhanced chat endpoint with RAG support"""
+    try:
+        data = request.get_json()
+        user_message = data.get('message', '').strip()
+        chart_data = data.get('chart_data')  # Optional chart data for context
+        
+        if not user_message:
+            return jsonify({
+                "error": "Message is required"
+            }), 400
+        
+        # Generate AI response using RAG if chart data available
+        ai_response = astro_api.generate_ai_response(user_message, chart_data)
+        
+        return jsonify({
+            "response": ai_response,
+            "timestamp": datetime.now().isoformat(),
+            "user_message": user_message,
+            "rag_enabled": astro_api.vector_store is not None
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {e}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e)
+        }), 500
+
+@app.route('/api/kundli', methods=['POST'])
+def generate_kundli():
+    """Enhanced Kundli generation with flexible data input"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        # Parse and normalize birth data using the flexible parser
+        try:
+            birth_data = parse_birth_data(data)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        
+        # Get coordinates
+        latitude, longitude = astro_api.get_coordinates(birth_data['place'])
+        
+        # Calculate comprehensive chart data
+        chart_data = astro_api.calculate_chart_data(
+            birth_data['name'],
+            birth_data['dob_date'],
+            birth_data['tob_time'],
+            birth_data['place'],
+            latitude,
+            longitude,
+            birth_data['timezone']
+        )
+        
+        if not chart_data:
+            return jsonify({
+                "error": "Failed to generate Kundli. Please check your API credentials and try again."
+            }), 500
+        
+        return jsonify({
+            "success": True,
+            "chart_data": chart_data,
+            "parsed_data": {
+                "name": birth_data['name'],
+                "dob": birth_data['dob_date'].strftime('%Y-%m-%d'),
+                "tob": birth_data['tob_time'].strftime('%H:%M:%S'),
+                "place": birth_data['place'],
+                "timezone": birth_data['timezone'],
+                "coordinates": f"{latitude}, {longitude}"
+            },
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in kundli endpoint: {e}")
+        return jsonify({
+            "error": "Failed to generate Kundli",
+            "message": str(e)
+        }), 500
+
+@app.route('/api/test-prokerala', methods=['GET'])
+def test_prokerala():
+    """Test ProKerala API connection"""
+    try:
+        # Debug environment variables (do not leak secrets)
+        debug_info = {
+            "client_id_is_present": bool(PROKERALA_CLIENT_ID),
+            "client_secret_is_present": bool(PROKERALA_CLIENT_SECRET)
+        }
+        
+        access_token = astro_api.get_access_token()
+        
+        if not access_token:
+            return jsonify({
+                "error": "No access token available",
+                "debug_info": debug_info
+            }), 500
+            
+        # Test with ProKerala Chart endpoint
+        headers = {"Authorization": f"Bearer {access_token}"}
+        params = {
+            'ayanamsa': 5,
+            'coordinates': '19.054999,72.840279',
+            'datetime': '1990-03-15T10:30:00+05:30',
+            'chart_type': 'rasi',
+            'chart_style': 'north-indian',
+            'format': 'svg'
+        }
+        
+        response = requests.get('https://api.prokerala.com/v2/astrology/chart', headers=headers, params=params)
+
+        content_type = response.headers.get('content-type', '')
+        is_svg = 'svg' in content_type.lower() or response.text.strip().startswith('<svg')
+        preview = response.text[:200]
+
+        result = {
+            "success": response.status_code == 200,
+            "status_code": response.status_code,
+            "content_type": content_type,
+            "is_svg": is_svg,
+            "debug_info": debug_info
+        }
+
+        # Include a safe preview without JSON parsing errors
+        if is_svg:
+            result["response_preview"] = preview
+        else:
+            # Try JSON parse only if content-type hints JSON
+            if 'application/json' in content_type.lower():
+                try:
+                    result["json"] = response.json()
+                except Exception as e:
+                    result["json_parse_error"] = str(e)
+                    result["response_preview"] = preview
+            else:
+                result["response_preview"] = preview
+
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def parse_birth_data(data):
+    """Parse and normalize birth data from various input formats"""
+    try:
+        # Extract and normalize name
+        name = data.get('name', '').strip()
+        if not name:
+            name = data.get('full_name', '').strip()
+        if not name:
+            name = data.get('person_name', '').strip()
+        
+        # Extract and normalize date of birth
+        dob_str = data.get('dob', '')
+        if not dob_str:
+            dob_str = data.get('date_of_birth', '')
+        if not dob_str:
+            dob_str = data.get('birth_date', '')
+        if not dob_str:
+            dob_str = data.get('birthday', '')
+        
+        # Extract and normalize time of birth
+        tob_str = data.get('tob', '')
+        if not tob_str:
+            tob_str = data.get('time_of_birth', '')
+        if not tob_str:
+            tob_str = data.get('birth_time', '')
+        if not tob_str:
+            tob_str = data.get('time', '')
+        
+        # Extract and normalize place
+        place = data.get('place', '')
+        if not place:
+            place = data.get('birth_place', '')
+        if not place:
+            place = data.get('location', '')
+        if not place:
+            place = data.get('city', '')
+        
+        # Extract timezone
+        timezone_str = data.get('timezone', 'Asia/Kolkata')
+        if not timezone_str:
+            timezone_str = data.get('tz', 'Asia/Kolkata')
+        
+        # Validate required fields
+        if not name:
+            raise ValueError("Name is required")
+        if not dob_str:
+            raise ValueError("Date of birth is required")
+        if not tob_str:
+            raise ValueError("Time of birth is required")
+        if not place:
+            raise ValueError("Birth place is required")
+        
+        # Parse date with multiple format support
+        dob_date = None
+        date_formats = [
+            '%Y-%m-%d',      # 2023-12-25
+            '%d-%m-%Y',      # 25-12-2023
+            '%m/%d/%Y',      # 12/25/2023
+            '%d/%m/%Y',      # 25/12/2023
+            '%Y/%m/%d',      # 2023/12/25
+            '%d.%m.%Y',      # 25.12.2023
+            '%m.%d.%Y',      # 12.25.2023
+            '%d %m %Y',      # 25 12 2023
+            '%B %d, %Y',     # December 25, 2023
+            '%d %B %Y',      # 25 December 2023
+        ]
+        
+        for fmt in date_formats:
+            try:
+                dob_date = datetime.strptime(dob_str.strip(), fmt).date()
+                break
+            except ValueError:
+                continue
+        
+        if dob_date is None:
+            raise ValueError(f"Unable to parse date: {dob_str}. Supported formats: YYYY-MM-DD, DD-MM-YYYY, MM/DD/YYYY, etc.")
+        
+        # Parse time with multiple format support
+        tob_time = None
+        time_formats = [
+            '%H:%M:%S',      # 14:30:00
+            '%H:%M',         # 14:30
+            '%I:%M:%S %p',   # 02:30:00 PM
+            '%I:%M %p',      # 02:30 PM
+            '%I:%M:%S %p',   # 2:30:00 PM
+            '%I:%M %p',      # 2:30 PM
+        ]
+        
+        for fmt in time_formats:
+            try:
+                tob_time = datetime.strptime(tob_str.strip(), fmt).time()
+                break
+            except ValueError:
+                continue
+        
+        if tob_time is None:
+            raise ValueError(f"Unable to parse time: {tob_str}. Supported formats: HH:MM:SS, HH:MM, HH:MM AM/PM, etc.")
+        
+        # Normalize place name
+        place = place.strip()
+        
+        return {
+            'name': name,
+            'dob_date': dob_date,
+            'tob_time': tob_time,
+            'place': place,
+            'timezone': timezone_str
+        }
+        
+    except Exception as e:
+        logger.error(f"Error parsing birth data: {e}")
+        raise ValueError(f"Data parsing error: {str(e)}")
+
+@app.route('/api/chart', methods=['POST'])
+def generate_chart():
+    """Generate visual Kundli chart using ProKerala chart endpoint with flexible data input"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        # Parse and normalize birth data
+        try:
+            birth_data = parse_birth_data(data)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        
+        # Get coordinates
+        latitude, longitude = astro_api.get_coordinates(birth_data['place'])
+        
+        # Generate chart using ProKerala chart endpoint
+        chart_data = astro_api.generate_chart_only(
+            birth_data['name'],
+            birth_data['dob_date'],
+            birth_data['tob_time'],
+            birth_data['place'],
+            latitude,
+            longitude,
+            birth_data['timezone']
+        )
+        
+        if chart_data:
+            return jsonify({
+                "success": True,
+                "chart_data": chart_data,
+                "parsed_data": {
+                    "name": birth_data['name'],
+                    "dob": birth_data['dob_date'].strftime('%Y-%m-%d'),
+                    "tob": birth_data['tob_time'].strftime('%H:%M:%S'),
+                    "place": birth_data['place'],
+                    "timezone": birth_data['timezone'],
+                    "coordinates": f"{latitude}, {longitude}"
+                },
+                "message": "Chart generated successfully"
+            })
+        else:
+            return jsonify({"error": "Failed to generate chart"}), 500
+            
+    except Exception as e:
+        logger.error(f"Error in chart generation: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@app.route('/api/analyze', methods=['POST'])
+def analyze_kundli():
+    """Analyze Kundli data using RAG"""
+    try:
+        data = request.get_json()
+        chart_data = data.get('chart_data')
+        question = data.get('question', 'Please analyze this Kundli')
+        
+        if not chart_data:
+            return jsonify({
+                "error": "Chart data is required for analysis"
+            }), 400
+        
+        # Generate analysis using RAG
+        analysis = astro_api.get_rag_response(question, chart_data)
+        
+        return jsonify({
+            "analysis": analysis,
+            "timestamp": datetime.now().isoformat(),
+            "rag_enabled": astro_api.vector_store is not None
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in analyze endpoint: {e}")
+        return jsonify({
+            "error": "Failed to analyze Kundli",
+            "message": str(e)
+        }), 500
+
+@app.route('/api/form-submit', methods=['POST'])
+def form_submit():
+    """Append form submission to Google Sheet."""
+    try:
+        if append_form_submission is None:
+            return jsonify({"error": "Sheets integration not available on server"}), 500
+
+        payload = request.get_json() or {}
+        required = ['name', 'dob', 'tob', 'place', 'timezone']
+        missing = [k for k in required if not str(payload.get(k, '')).strip()]
+        if missing:
+            return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
+
+        # Append to Google Sheet (requires GOOGLE_SHEETS_SPREADSHEET_ID and refresh token)
+        append_form_submission(
+            spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
+            worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
+            row_data=[
+                datetime.now().isoformat(),
+                payload['name'],
+                payload['dob'],
+                payload['tob'],
+                payload['place'],
+                payload.get('timezone', 'Asia/Kolkata')
+            ]
+        )
+
+        return jsonify({"success": True})
+    except HttpError as he:
+        logger.error(f"Google Sheets API error: {he}")
+        return jsonify({"error": "Google Sheets API error", "message": str(he)}), 500
+    except Exception as e:
+        logger.error(f"Error in form-submit endpoint: {e}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+@app.route('/api/sheets/diagnose', methods=['GET'])
+def sheets_diagnose():
+    """Check Google Sheets connectivity and env setup."""
+    try:
+        if diagnose_connection is None:
+            return jsonify({"ok": False, "error": "Sheets module not available"}), 500
+        result = diagnose_connection()
+        # Attach non-sensitive env presence flags
+        env_status = {
+            "GOOGLE_CLIENT_ID": bool(os.getenv('GOOGLE_CLIENT_ID')),
+            "GOOGLE_CLIENT_SECRET": bool(os.getenv('GOOGLE_CLIENT_SECRET')),
+            "GOOGLE_REFRESH_TOKEN": bool(os.getenv('GOOGLE_REFRESH_TOKEN')),
+            "GOOGLE_TOKEN_URI": bool(os.getenv('GOOGLE_TOKEN_URI')),
+            "GOOGLE_SHEETS_SPREADSHEET_ID": bool(os.getenv('GOOGLE_SHEETS_SPREADSHEET_ID')),
+            "GOOGLE_SHEETS_WORKSHEET_NAME": bool(os.getenv('GOOGLE_SHEETS_WORKSHEET_NAME'))
+        }
+        # Include .env path diagnostics
+        result.update({
+            "env": env_status,
+            "env_file_path": ENV_PATH,
+            "env_file_exists": os.path.exists(ENV_PATH),
+            "env_loaded": bool(ENV_LOADED),
+            "cwd": os.getcwd()
+        })
+        return jsonify(result), (200 if result.get('ok') else 500)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+if __name__ == '__main__':
+    # Check configuration
+    if not PROKERALA_CLIENT_ID or not PROKERALA_CLIENT_SECRET:
+        logger.warning("ProKerala API credentials not found in environment variables")
+    
+    if not OPENAI_API_KEY:
+        logger.warning("OpenAI API key not found - RAG features will be limited")
+    
+    logger.info("Starting Enhanced AstroBot Backend Server...")
+    app.run(debug=True, host='0.0.0.0', port=5000)

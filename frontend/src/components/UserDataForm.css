@@ -1,0 +1,334 @@
+/**
+ * UserDataForm.css - Styles for the User Data Collection Modal Form
+ * 
+ * This file contains all the styles for the modal popup form that collects
+ * user birth details before entering the chat interface.
+ * 
+ * Features:
+ * - Modal overlay with backdrop blur
+ * - Responsive form layout
+ * - Input validation styling
+ * - Loading states and animations
+ * - Mobile-first design approach
+ */
+
+/* Modal Overlay */
+.user-data-form-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(228, 107, 0, 0.10) 0%, rgba(0, 0, 0, 0.55) 40%, rgba(0, 0, 0, 0.65) 100%);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal Container */
+.user-data-form-modal {
+  /* Transparent glass effect */
+  background: linear-gradient(135deg, rgba(15, 15, 35, 0.35) 0%, rgba(26, 26, 46, 0.28) 100%);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease-out;
+  border: 1px solid rgba(228, 107, 0, 0.35);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Form Header */
+.form-header {
+  padding: 30px 30px 20px;
+  text-align: center;
+  position: relative;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.form-header h2 {
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  background: linear-gradient(45deg, #e46b00, #ff8800);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.form-header p {
+  color: #b8c5d6;
+  font-size: 14px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(228, 107, 0, 0.2);
+  border: 1px solid rgba(228, 107, 0, 0.3);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #ff8800;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: rgba(228, 107, 0, 0.3);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(228, 107, 0, 0.2);
+}
+
+.close-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Form Styles */
+.user-data-form {
+  padding: 30px;
+}
+
+.form-group {
+  margin-bottom: 25px;
+}
+
+.form-group label {
+  display: block;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #ff8800;
+  background: rgba(228, 107, 0, 0.1);
+  box-shadow: 0 0 0 3px rgba(228, 107, 0, 0.2);
+}
+
+.form-group input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.form-group input.error,
+.form-group select.error {
+  border-color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.form-group input.error:focus,
+.form-group select.error:focus {
+  border-color: #ff6b6b;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.2);
+}
+
+.error-message {
+  color: #ff6b6b;
+  font-size: 12px;
+  margin-top: 5px;
+  display: block;
+}
+
+.submit-error {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.cancel-btn,
+.submit-btn {
+  flex: 1;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cancel-btn {
+  background: rgba(228, 107, 0, 0.1);
+  color: #ff8800;
+  border: 2px solid rgba(228, 107, 0, 0.3);
+}
+
+.cancel-btn:hover {
+  background: rgba(228, 107, 0, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(228, 107, 0, 0.2);
+}
+
+.submit-btn {
+  background: linear-gradient(135deg, #e46b00 0%, #ff8800 100%);
+  color: #0f0f23;
+  box-shadow: 0 4px 15px rgba(228, 107, 0, 0.3);
+}
+
+.submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(228, 107, 0, 0.4);
+}
+
+.submit-btn:disabled,
+.cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(15, 15, 35, 0.3);
+  border-top: 2px solid #0f0f23;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .user-data-form-overlay {
+    padding: 10px;
+  }
+  
+  .user-data-form-modal {
+    max-height: 95vh;
+  }
+  
+  .form-header {
+    padding: 20px 20px 15px;
+  }
+  
+  .form-header h2 {
+    font-size: 20px;
+  }
+  
+  .user-data-form {
+    padding: 20px;
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  .form-group input,
+  .form-group select {
+    padding: 10px 14px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .cancel-btn,
+  .submit-btn {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .form-header h2 {
+    font-size: 18px;
+  }
+  
+  .form-header p {
+    font-size: 13px;
+  }
+  
+  .close-btn {
+    width: 35px;
+    height: 35px;
+    top: 15px;
+    right: 15px;
+  }
+}
+
+/* Scrollbar Styling */
+.user-data-form-modal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.user-data-form-modal::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.user-data-form-modal::-webkit-scrollbar-thumb {
+  background: rgba(228, 107, 0, 0.5);
+  border-radius: 3px;
+}
+
+.user-data-form-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(228, 107, 0, 0.7);
+}
