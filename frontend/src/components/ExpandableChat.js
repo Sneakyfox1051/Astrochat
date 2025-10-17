@@ -563,44 +563,65 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
           botText = "Chart generate ho raha hai, kripya wait karein...";
         }
 
-        // Smooth typing simulation with thoughtful delay for predictions (8-10 seconds)
+        // Smooth typing simulation with thoughtful delay for predictions (reduced to ~4s)
         const looksLikePrediction = /\b(yog|shaadi|career|health|mangal|grah|kundli|prediction|yoga|marriage|job|business|future)\b/i.test(botText || '');
-        const baseDelay = looksLikePrediction ? 8000 : 1200; // 8s+ for predictions, 1.2s for regular chat
-        const variableDelay = looksLikePrediction ? Math.min(2000, Math.floor((botText?.length || 0) / 15) * 80) : 500;
-        const delayMs = baseDelay + variableDelay; // Total 8-10 seconds for predictions
-        await new Promise(res => setTimeout(res, delayMs));
-        // Remove typing indicator and add botText in 2-3 chunks for a human feel
-        const parts = (botText || '').split(/\n\s*\n/).filter(Boolean).slice(0, 3);
+        const baseDelay = looksLikePrediction ? 4000 : 1200; // 4s for predictions, 1.2s for regular chat
+        await new Promise(res => setTimeout(res, baseDelay));
+        // Remove initial typing indicator before chunked responses
         setMessages(prev => prev.filter(msg => !msg.isTyping));
+        // Split into 2-3 chunks and show a 4s typing window between chunks
+        const parts = (botText || '').split(/\n\s*\n/).filter(Boolean).slice(0, 3);
         const sendChunk = async (idx) => {
           if (idx >= parts.length) return;
-          const chunk = parts[idx].trim();
-          if (chunk) {
-            setMessages(prev => ([...prev, {
+          // Show typing window for 4 seconds before each chunk
+          const typingMsg = {
+            id: nextMessageId(),
+            text: 'Pandit ji typing...',
+            sender: 'pandit',
+            timestamp: new Date().toLocaleTimeString(),
+            isTyping: true
+          };
+          setMessages(prev => ([...prev, typingMsg]));
+          await new Promise(r => setTimeout(r, 4000));
+          // Replace typing bubble with actual chunk
+          setMessages(prev => {
+            const withoutTyping = prev.filter(m => !m.isTyping);
+            return [...withoutTyping, {
               id: nextMessageId(),
-              text: chunk,
+              text: parts[idx].trim(),
               sender: 'pandit',
               timestamp: new Date().toLocaleTimeString()
-            }]));
-          }
-          if (idx < parts.length - 1) {
-            const gap = 900 + Math.floor(Math.random() * 600); // 0.9s - 1.5s between chunks
-            await new Promise(r => setTimeout(r, gap));
-          }
+            }];
+          });
           await sendChunk(idx + 1);
         };
         await sendChunk(0);
         // Optionally add a gentle follow-up question to keep flow natural
         if (currentStep === 'chatting' || currentStep === 'chart_generated') {
+          // Follow-up only after all chunks; add a small human pause
           const fupDelay = 1200 + Math.floor(Math.random() * 1200);
           const followUp = selectFollowUps(currentInput, {});
           setTimeout(() => {
-            setMessages(prev => ([...prev, {
+            // Show 4s typing window before follow-up as well
+            const typingMsg = {
               id: nextMessageId(),
-              text: followUp,
+              text: 'Pandit ji typing...',
               sender: 'pandit',
-              timestamp: new Date().toLocaleTimeString()
-            }]));
+              timestamp: new Date().toLocaleTimeString(),
+              isTyping: true
+            };
+            setMessages(prev => ([...prev, typingMsg]));
+            setTimeout(() => {
+              setMessages(prev => {
+                const withoutTyping = prev.filter(m => !m.isTyping);
+                return [...withoutTyping, {
+                  id: nextMessageId(),
+                  text: followUp,
+                  sender: 'pandit',
+                  timestamp: new Date().toLocaleTimeString()
+                }];
+              });
+            }, 4000);
           }, fupDelay);
         }
         setIsBotTyping(false);

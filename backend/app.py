@@ -240,20 +240,18 @@ def generate_remedies(user_query, chart_data, compact=False):
         paid_one = selected['buyable'][0] if selected.get('buyable') else ''
         return (
             f"\n---\n"
-            f"**Upay – {selected['category_name']}**\n"
-            f"- Free Remedy: {selected['free']}\n"
-            f"- Paid Remedy: {paid_one} — aap yeh AstroRemedis se le sakte hain.\n"
+            f"Upay – {selected['category_name']}\n"
+            f"- Free: {selected['free']}\n"
+            f"- Paid: {paid_one} (AstroRemedis se uplabdh)\n"
             f"- Activation: {activation_process}"
         )
     else:
         response = (
-            f"\n---\n\n**🕉️ aapke {selected['category_name']} sambandhi chintao ke liye kuch upaay hain, jo aap agar shraddha aur niyam se apnate hain, to zarur laabh prapt hoga.**\n\n"
-            "Aapke grahon ki sthiti ko sudhaarne ke liye, aap yeh do tarah ke upay kar sakte hain. \n\n"
-            f"**✨ 1. Yeh Kuchh Upaye jo Aapke Roz ke Jeevan ke Liye hain**\n"
-            f"• {selected['free']}\n\n"
-            f"**💎 2. Jaldi Aur Behtar Asar Ke Liye aap in chizo ko dhaaran kar sakte hain.**\n"
-            + "*" + "\n* ".join(selected['buyable']) + "*\n\n"
-            + activation_process
+            f"\n---\n\n"
+            f"{selected['category_name']} ke liye upay:\n"
+            f"- Free: {selected['free']}\n"
+            f"- Paid options: \n  - " + "\n  - ".join(selected['buyable']) + "\n"
+            f"- Activation: {activation_process}"
         )
         return response
 
