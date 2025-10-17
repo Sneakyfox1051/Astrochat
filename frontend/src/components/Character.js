@@ -8,10 +8,11 @@ const Character = () => {
       <img 
         src={require('../assets/Astro_Client.gif')} 
         alt="Astro Pandit" 
-        className="character-image"
+        className="character-image character-gif"
         onError={(e) => {
           // Fallback to PNG if GIF fails to load
           e.target.src = require('../assets/Astro_Client_Final.png');
+          e.target.className = 'character-image'; // Remove GIF-specific class on fallback
         }}
       />
     </div>
