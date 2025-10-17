@@ -563,17 +563,17 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
           botText = "Chart generate ho raha hai, kripya wait karein...";
         }
 
-        // Smooth typing simulation with thoughtful delay for predictions (reduced to ~4s)
+        // Smooth typing simulation with thoughtful delay for predictions (8s as requested)
         const looksLikePrediction = /\b(yog|shaadi|career|health|mangal|grah|kundli|prediction|yoga|marriage|job|business|future)\b/i.test(botText || '');
-        const baseDelay = looksLikePrediction ? 4000 : 1200; // 4s for predictions, 1.2s for regular chat
+        const baseDelay = looksLikePrediction ? 8000 : 2000; // 8s for predictions, 2s for regular chat
         await new Promise(res => setTimeout(res, baseDelay));
         // Remove initial typing indicator before chunked responses
         setMessages(prev => prev.filter(msg => !msg.isTyping));
-        // Split into 2-3 chunks and show a 4s typing window between chunks
+        // Split into 2-3 chunks and show an 8s typing window between chunks
         const parts = (botText || '').split(/\n\s*\n/).filter(Boolean).slice(0, 3);
         const sendChunk = async (idx) => {
           if (idx >= parts.length) return;
-          // Show typing window for 4 seconds before each chunk
+          // Show typing window for 8 seconds before each chunk
           const typingMsg = {
             id: nextMessageId(),
             text: 'Pandit ji typing...',
@@ -582,7 +582,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             isTyping: true
           };
           setMessages(prev => ([...prev, typingMsg]));
-          await new Promise(r => setTimeout(r, 4000));
+          await new Promise(r => setTimeout(r, 8000));
           // Replace typing bubble with actual chunk
           setMessages(prev => {
             const withoutTyping = prev.filter(m => !m.isTyping);
@@ -596,34 +596,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
           await sendChunk(idx + 1);
         };
         await sendChunk(0);
-        // Optionally add a gentle follow-up question to keep flow natural
-        if (currentStep === 'chatting' || currentStep === 'chart_generated') {
-          // Follow-up only after all chunks; add a small human pause
-          const fupDelay = 1200 + Math.floor(Math.random() * 1200);
-          const followUp = selectFollowUps(currentInput, {});
-          setTimeout(() => {
-            // Show 4s typing window before follow-up as well
-            const typingMsg = {
-              id: nextMessageId(),
-              text: 'Pandit ji typing...',
-              sender: 'pandit',
-              timestamp: new Date().toLocaleTimeString(),
-              isTyping: true
-            };
-            setMessages(prev => ([...prev, typingMsg]));
-            setTimeout(() => {
-              setMessages(prev => {
-                const withoutTyping = prev.filter(m => !m.isTyping);
-                return [...withoutTyping, {
-                  id: nextMessageId(),
-                  text: followUp,
-                  sender: 'pandit',
-                  timestamp: new Date().toLocaleTimeString()
-                }];
-              });
-            }, 4000);
-          }, fupDelay);
-        }
+        // Backend now handles follow-up questions, so no need for separate frontend follow-up
         setIsBotTyping(false);
         
       } catch (error) {

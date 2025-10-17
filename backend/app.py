@@ -46,8 +46,8 @@ logger = logging.getLogger(__name__)
 
 # LangChain imports - Optional for RAG functionality
 try:
-    from langchain_community.document_loaders import Docx2txtLoader
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import Docx2txtLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain_community.vectorstores import Chroma
     # Use OpenAI embeddings directly instead of langchain-openai
     import openai
@@ -279,7 +279,7 @@ class EnhancedAstroBotAPI:
         self.token_expiry = None
         self.vector_store = None
         if RAG_AVAILABLE:
-            self._load_vector_store()
+        self._load_vector_store()
         else:
             logger.info("RAG system disabled - LangChain dependencies not available")
     
@@ -547,14 +547,14 @@ class EnhancedAstroBotAPI:
                 elif ascendant_sign is not None:
                     sign_id = planet.get('rasi', {}).get('id')
                     if isinstance(sign_id, int):
-                        house_num = (sign_id - ascendant_sign + 12) % 12 + 1
+                house_num = (sign_id - ascendant_sign + 12) % 12 + 1
                         if house_num is None:
                             continue
                         planet_code = planet_code_map.get(planet_name, (planet_name or '')[:2])
-                        if house_num not in planets_in_house:
-                            planets_in_house[house_num] = []
+                if house_num not in planets_in_house:
+                    planets_in_house[house_num] = []
                         if planet_code and planet_code not in planets_in_house[house_num]:
-                            planets_in_house[house_num].append(planet_code)
+                     planets_in_house[house_num].append(planet_code)
         
         # Final CHART_DATA Structure with comprehensive ProKerala data
         final_chart_data = {
@@ -925,8 +925,9 @@ class EnhancedAstroBotAPI:
             2. **Length/Focus:** Be **EXTREMELY SUCCINCT** and **LASER-FOCUSED**. Limit the core prediction/explanation to **3-5 sentences MAXIMUM**.
             3. **Graha Explanation: ⛔ STRICTLY FORBIDDEN (ABSOLUTE ZERO TOLERANCE) ⛔:** **NEVER** mention any planet (Graha), house, sign, dasha, sub-lord, yog, sthiti, ya koi bhi astrological terminology (jyotish shabda) in the final response. Use this information only internally to form the prediction.
             4. **Formatting:** When predicting children, use the heading '🔮 Santan Yog Prediction' exactly as shown.
-            5. **Follow-up (Section 6):** {follow_up_instruction}
+            5. **SINGLE FOLLOW-UP ONLY:** {follow_up_instruction}
             6. **NO GENERIC QUESTIONS:** Avoid asking generic questions like "What is your next question?" or "On which topic do you want to focus next?" Use the specific follow-up question provided.
+            7. **REMEDY FORMAT:** If remedies are provided, include them in the SAME response as plain text (no markdown formatting, no **Upay:** headers, no special formatting).
 
             **CRITICAL ACCURACY & LOGIC RULES (Prediction Accuracy and Realism):**
             6. **Data-Driven:** Base your answer strictly on the provided CHART DATA and KP ASTROLOGY KNOWLEDGE.
@@ -935,7 +936,7 @@ class EnhancedAstroBotAPI:
             9. **CHRONOLOGY CHECK (CHILDREN ONLY):** If the question is about **Children/Santan**, you **MUST** ensure the prediction year is **AT LEAST 1 YEAR GREATER** than the earliest realistic marriage year ({safe_earliest_marriage_year}).
             10. **Dasha Priority (Timing Source):** The timing for prediction MUST be sourced from the Dasha periods, ensuring all chronological and logical rules are satisfied.
             11. **Time Reference:** ALWAYS use specific FUTURE years/timeframes (e.g., 'mid-2026', '2027-2028', 'late 2025') derived from the Dasha data, ensuring they are **logically sound and future-oriented**.
-            12. **REMEDY INSTRUCTION (NON-NEGOTIABLE):** After your final blessing and follow-up question, you **MUST** append the content found between ---REMEDY_SECTION_START--- and ---REMEDY_SECTION_END--- **EXACTLY AS IS**, without modifying any text or markdown.
+            12. **REMEDY INSTRUCTION (NON-NEGOTIABLE):** If remedies are provided, include them in your main response as plain text (no markdown, no special formatting) before the spiritual blessing and follow-up question.
 
             **User's Question:** "{question}"
 
@@ -948,17 +949,17 @@ class EnhancedAstroBotAPI:
             {age_logic_context}
 
             Provide the response now, following ALL the above rules.
-{('---REMEDY_SECTION_START---' + chr(10) + remedies_section + chr(10) + '---REMEDY_SECTION_END---') if remedies_section else ''}
+            {('Include these remedies in your main response as plain text: ' + remedies_section) if remedies_section else ''}
                         """
             
             try:
-                response = openai.chat.completions.create(
-                    model="gpt-4-turbo",
+            response = openai.chat.completions.create(
+                model="gpt-4-turbo",
                     messages=[{"role": "user", "content": system_prompt}],
                     temperature=0.9,
                     max_tokens=800
-                )
-                return response.choices[0].message.content
+            )
+            return response.choices[0].message.content
             except Exception as primary_error:
                 # Fallback: smaller model and even shorter prompt to avoid rate/context limits
                 try:
@@ -1400,18 +1401,18 @@ def form_submit():
         # Try to append to Google Sheet (optional - not critical for core functionality)
         if append_form_submission is not None:
             try:
-                append_form_submission(
-                    spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
-                    worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
-                    row_data=[
-                        datetime.now().isoformat(),
-                        payload['name'],
-                        payload['dob'],
-                        payload['tob'],
-                        payload['place'],
-                        payload.get('timezone', 'Asia/Kolkata')
-                    ]
-                )
+        append_form_submission(
+            spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
+            worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
+            row_data=[
+                datetime.now().isoformat(),
+                payload['name'],
+                payload['dob'],
+                payload['tob'],
+                payload['place'],
+                payload.get('timezone', 'Asia/Kolkata')
+            ]
+        )
                 logger.info("Form data successfully saved to Google Sheets")
             except Exception as sheets_error:
                 logger.warning(f"Google Sheets integration failed: {sheets_error}")
