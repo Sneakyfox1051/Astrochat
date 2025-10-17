@@ -46,8 +46,8 @@ logger = logging.getLogger(__name__)
 
 # LangChain imports - Optional for RAG functionality
 try:
-    from langchain_community.document_loaders import Docx2txtLoader
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import Docx2txtLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain_community.vectorstores import Chroma
     # Use OpenAI embeddings directly instead of langchain-openai
     import openai
@@ -279,7 +279,7 @@ class EnhancedAstroBotAPI:
         self.token_expiry = None
         self.vector_store = None
         if RAG_AVAILABLE:
-            self._load_vector_store()
+        self._load_vector_store()
         else:
             logger.info("RAG system disabled - LangChain dependencies not available")
     
@@ -506,7 +506,7 @@ class EnhancedAstroBotAPI:
         except Exception as e:
             logger.error(f"Error processing Chart data: {e}")
             api_data['chart'] = {}
-
+            
         # Fetch Bhava Positions (KP Houses)
         try:
             bhava_url = f"{base_url}/bhava-position"
@@ -547,14 +547,14 @@ class EnhancedAstroBotAPI:
                 elif ascendant_sign is not None:
                     sign_id = planet.get('rasi', {}).get('id')
                     if isinstance(sign_id, int):
-                        house_num = (sign_id - ascendant_sign + 12) % 12 + 1
+                house_num = (sign_id - ascendant_sign + 12) % 12 + 1
                 if house_num is None:
                     continue
                 planet_code = planet_code_map.get(planet_name, (planet_name or '')[:2])
                 if house_num not in planets_in_house:
                     planets_in_house[house_num] = []
                 if planet_code and planet_code not in planets_in_house[house_num]:
-                    planets_in_house[house_num].append(planet_code)
+                     planets_in_house[house_num].append(planet_code)
         
         # Final CHART_DATA Structure with comprehensive ProKerala data
         final_chart_data = {
@@ -811,10 +811,11 @@ class EnhancedAstroBotAPI:
             age_logic_context = f"""
             **INTERNAL AGE/LOGIC CONTEXT:**
             User was born in {birth_year}. Current Age: {current_age}. 
+            **CURRENT YEAR: 2025** - All predictions must be for 2025 onwards.
             Question Type: {response_style}.
             Minimum realistic age for this event is {minimum_age_threshold} years. 
-            Prediction year MUST be >= {earliest_realistic_year}.
-            If the Dasha data shows a favorable time before {earliest_realistic_year}, IGNORE it and find the next favorable timing after {earliest_realistic_year}.
+            Prediction year MUST be >= {earliest_realistic_year} AND >= 2025.
+            If the Dasha data shows a favorable time before {earliest_realistic_year} or before 2025, IGNORE it and find the next favorable timing after {earliest_realistic_year} and 2025.
             {childbirth_logic_context}
             """
 
@@ -863,20 +864,46 @@ class EnhancedAstroBotAPI:
             if len(chart_context) > 3000:
                 chart_context = chart_context[:3000]
 
-            # Follow-up questions
-            follow_up_questions = [
-                "Kya aapke rishte ki baat chal rahi hai kya?",
-                "Aapka career kis field mein hai aur kya aap usse khush hain?",
-                "Aapko apni health ke baare mein bhi jaanna hai kya?",
-                "Abhi aapke man mein aur kya sawaal hai jiska jawab aap chahte hain?",
-                "Vartman mein aapka koi bahut bada sankat ya chinta hai kya?",
-            ]
+            # Context-aware follow-up questions based on the user's question
+            follow_up_questions = {
+                "career": [
+                    "Aapka current job role kya hai aur kya aap usse satisfied hain?",
+                    "Kya aap job change ya promotion ke baare mein soch rahe hain?",
+                    "Aapke career goals kya hain jo aap achieve karna chahte hain?",
+                    "Kya aap koi naya business start karna chahte hain?"
+                ],
+                "relationship": [
+                    "Kya aapke rishte ki baat chal rahi hai kya?",
+                    "Aapki current relationship status kya hai?",
+                    "Kya aap marriage ke liye ready hain ya koi specific concerns hain?",
+                    "Aapke family mein koi pressure hai marriage ke liye?"
+                ],
+                "health": [
+                    "Aapko koi specific health issues hain jo aapko pareshan kar rahe hain?",
+                    "Kya aap regular exercise aur healthy diet follow karte hain?",
+                    "Aapke family mein koi hereditary health problems hain?",
+                    "Kya aap stress ya anxiety se deal kar rahe hain?"
+                ],
+                "general": [
+                    "Aapke man mein aur kya sawaal hai jiska jawab aap chahte hain?",
+                    "Kya aap koi specific problem face kar rahe hain jo solve karna chahte hain?",
+                    "Aapke life mein koi major changes aane wale hain?",
+                    "Kya aap koi important decision lene wale hain?"
+                ]
+            }
             
-            # Select appropriate follow-up question
+            # Select appropriate follow-up question based on response style
             follow_up_instruction = ""
             if response_style in ["relationship_advice", "career_guidance", "health_guidance"]:
                 import random
-                follow_up_question = random.choice(follow_up_questions)
+                # Map response styles to follow-up categories
+                follow_up_category = {
+                    "relationship_advice": "relationship",
+                    "career_guidance": "career", 
+                    "health_guidance": "health"
+                }.get(response_style, "general")
+                
+                follow_up_question = random.choice(follow_up_questions[follow_up_category])
                 follow_up_instruction = f"At the very end of your response, gently ask the user this question to continue the flow: '{follow_up_question}'"
 
             # Build remedies section only if the question implies a problem/pain
@@ -889,7 +916,7 @@ class EnhancedAstroBotAPI:
             You are AstroBot, an experienced, calm, wise, and compassionate KP Jyotishacharya (Digital Pandit Ji). 
             Your persona MUST match this EXACT structure and tone (using Hinglish and appropriate greetings):
             1. Start with a spiritual Hindi/Hinglish acknowledgment (e.g., "Aapka sawaal uttam hai, {chart_data.get('name', 'User')} ji...").
-            2. State the prediction in a clear, narrative style using Hinglish.
+            2. State the prediction in a clear, narrative style using Hinglish with SPECIFIC future timeframes (2025 onwards).
             3. If the prediction relates to children, use the '🔮 Santan Yog Prediction' heading and explain the timing.
             4. Conclude with a spiritual blessing ("Shri Sitaram...") and the follow-up question.
 
@@ -899,23 +926,25 @@ class EnhancedAstroBotAPI:
             3. **Graha Explanation: ⛔ STRICTLY FORBIDDEN (ABSOLUTE ZERO TOLERANCE) ⛔:** **NEVER** mention any planet (Graha), house, sign, dasha, sub-lord, yog, sthiti, ya koi bhi astrological terminology (jyotish shabda) in the final response. Use this information only internally to form the prediction.
             4. **Formatting:** When predicting children, use the heading '🔮 Santan Yog Prediction' exactly as shown.
             5. **Follow-up (Section 6):** {follow_up_instruction}
+            6. **NO GENERIC QUESTIONS:** Avoid asking generic questions like "What is your next question?" or "On which topic do you want to focus next?" Use the specific follow-up question provided.
 
             **CRITICAL ACCURACY & LOGIC RULES (Prediction Accuracy and Realism):**
             6. **Data-Driven:** Base your answer strictly on the provided CHART DATA and KP ASTROLOGY KNOWLEDGE.
-            7. **AGE/LOGIC OVERRIDE (NON-NEGOTIABLE):** For any prediction, the **Prediction Year MUST be GREATER THAN or EQUAL TO** the **Earliest Realistic Year** ({earliest_realistic_year}).
-8. **CHRONOLOGY CHECK (CHILDREN ONLY):** If the question is about **Children/Santan**, you **MUST** ensure the prediction year is **AT LEAST 1 YEAR GREATER** than the earliest realistic marriage year ({safe_earliest_marriage_year}).
-            9. **Dasha Priority (Timing Source):** The timing for prediction MUST be sourced from the Dasha periods, ensuring all chronological and logical rules are satisfied.
-            10. **Time Reference:** ALWAYS use specific years/timeframes (e.g., 'mid-2049') derived from the Dasha data, ensuring they are **logically sound**.
-            11. **REMEDY INSTRUCTION (NON-NEGOTIABLE):** After your final blessing and follow-up question, you **MUST** append the content found between ---REMEDY_SECTION_START--- and ---REMEDY_SECTION_END--- **EXACTLY AS IS**, without modifying any text or markdown.
+            7. **CURRENT YEAR AWARENESS:** We are currently in 2025. ALL predictions must be for FUTURE years (2025 onwards). NEVER mention past years like 2023-2025.
+            8. **AGE/LOGIC OVERRIDE (NON-NEGOTIABLE):** For any prediction, the **Prediction Year MUST be GREATER THAN or EQUAL TO** the **Earliest Realistic Year** ({earliest_realistic_year}).
+            9. **CHRONOLOGY CHECK (CHILDREN ONLY):** If the question is about **Children/Santan**, you **MUST** ensure the prediction year is **AT LEAST 1 YEAR GREATER** than the earliest realistic marriage year ({safe_earliest_marriage_year}).
+            10. **Dasha Priority (Timing Source):** The timing for prediction MUST be sourced from the Dasha periods, ensuring all chronological and logical rules are satisfied.
+            11. **Time Reference:** ALWAYS use specific FUTURE years/timeframes (e.g., 'mid-2026', '2027-2028', 'late 2025') derived from the Dasha data, ensuring they are **logically sound and future-oriented**.
+            12. **REMEDY INSTRUCTION (NON-NEGOTIABLE):** After your final blessing and follow-up question, you **MUST** append the content found between ---REMEDY_SECTION_START--- and ---REMEDY_SECTION_END--- **EXACTLY AS IS**, without modifying any text or markdown.
 
             **User's Question:** "{question}"
 
             **INTERNAL REFERENCE DATA (Analyze and Apply Rules):**
             {chart_context}
-
+            
             **KP ASTROLOGY KNOWLEDGE (Internal Reference Only):**
             {context_from_docs}
-
+            
             {age_logic_context}
 
             Provide the response now, following ALL the above rules.
@@ -923,13 +952,13 @@ class EnhancedAstroBotAPI:
                         """
             
             try:
-                response = openai.chat.completions.create(
-                    model="gpt-4-turbo",
+            response = openai.chat.completions.create(
+                model="gpt-4-turbo",
                     messages=[{"role": "user", "content": system_prompt}],
                     temperature=0.9,
                     max_tokens=800
-                )
-                return response.choices[0].message.content
+            )
+            return response.choices[0].message.content
             except Exception as primary_error:
                 # Fallback: smaller model and even shorter prompt to avoid rate/context limits
                 try:
@@ -1371,18 +1400,18 @@ def form_submit():
         # Try to append to Google Sheet (optional - not critical for core functionality)
         if append_form_submission is not None:
             try:
-                append_form_submission(
-                    spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
-                    worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
-                    row_data=[
-                        datetime.now().isoformat(),
-                        payload['name'],
-                        payload['dob'],
-                        payload['tob'],
-                        payload['place'],
-                        payload.get('timezone', 'Asia/Kolkata')
-                    ]
-                )
+        append_form_submission(
+            spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
+            worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
+            row_data=[
+                datetime.now().isoformat(),
+                payload['name'],
+                payload['dob'],
+                payload['tob'],
+                payload['place'],
+                payload.get('timezone', 'Asia/Kolkata')
+            ]
+        )
                 logger.info("Form data successfully saved to Google Sheets")
             except Exception as sheets_error:
                 logger.warning(f"Google Sheets integration failed: {sheets_error}")
