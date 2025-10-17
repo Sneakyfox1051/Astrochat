@@ -43,8 +43,8 @@
 
 /* Specific styling for GIF to control animation speed */
 .character-gif {
-  /* Slow down the floating animation for GIF */
-  animation-duration: 8s;
+  /* Much slower floating animation for GIF - 3x slower than original */
+  animation-duration: 12s;
   /* Additional properties to ensure smooth GIF playback */
   image-rendering: auto;
   image-rendering: crisp-edges;
@@ -53,7 +53,7 @@
 
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-6px); }
 }
 
 @keyframes aura-pulse {
