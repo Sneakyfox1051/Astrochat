@@ -4,7 +4,16 @@ import './Character.css';
 const Character = () => {
   return (
     <div className="character-container">
-      <img src={require('../assets/Astro_Client_Final.png')} alt="Astro Pandit" className="character-image" />
+      {/* Experimental: Try GIF first, fallback to PNG if GIF fails */}
+      <img 
+        src={require('../assets/Astro_Client.gif')} 
+        alt="Astro Pandit" 
+        className="character-image"
+        onError={(e) => {
+          // Fallback to PNG if GIF fails to load
+          e.target.src = require('../assets/Astro_Client_Final.png');
+        }}
+      />
     </div>
   );
 };
