@@ -20,11 +20,17 @@ Version: 2.0.0
 Last Updated: 2024
 """
 
+import os
+import warnings
+# Suppress ChromaDB telemetry warnings
+os.environ['CHROMA_TELEMETRY'] = 'false'
+# Suppress ONNX Runtime GPU warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='onnxruntime')
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
 import json
-import os
 from datetime import datetime, timedelta
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
@@ -108,9 +114,15 @@ GOOGLE_SHEETS_WORKSHEET_NAME = os.getenv('GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1
 
 try:
     from google_sheets import append_form_submission, diagnose_connection
+    # Only enable if credentials are available
+    if not os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON') and not os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE'):
+        append_form_submission = None
+        diagnose_connection = None
+        logger.info("Google Sheets integration disabled - no credentials found")
 except Exception as _e:
     append_form_submission = None
     diagnose_connection = None
+    logger.warning(f"Google Sheets integration not available: {_e}")
 
 # Constants
 DOC_FILES = ["KP_RULE_1.docx", "KP_RULE_2.docx", "KP_RULE_3.docx"]
