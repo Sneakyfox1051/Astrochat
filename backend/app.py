@@ -793,6 +793,8 @@ class EnhancedAstroBotAPI:
             # Determine the context and required minimum age
             question_lower = question.lower()
             response_style = "general_astrology"
+            # Initialize with a safe default so it's always defined
+            earliest_marriage_year = birth_year + min_ages["relationship_advice"]
             
             if any(word in question_lower for word in ['love', 'marriage', 'relationship', 'shadi', 'pyaar', 'vivah']):
                 response_style = "relationship_advice"
