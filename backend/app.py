@@ -731,6 +731,8 @@ class EnhancedAstroBotAPI:
             return "The knowledge base is not loaded or OpenAI API key is missing. Please check your configuration."
             
         try:
+            # Ensure variable exists in all code paths
+            earliest_marriage_year = 0
             retriever = self.vector_store.as_retriever(search_kwargs={"k": 3})
             relevant_docs = retriever.invoke(question)
             # Concise RAG context (cap total size to avoid token limits)
@@ -765,6 +767,7 @@ class EnhancedAstroBotAPI:
             response_style = "general_astrology"
             # Initialize with a safe default so it's always defined
             earliest_marriage_year = birth_year + min_ages["relationship_advice"]
+            logger.info(f"[AI] birth_year={birth_year}, default earliest_marriage_year={earliest_marriage_year}")
             
             if any(word in question_lower for word in ['love', 'marriage', 'relationship', 'shadi', 'pyaar', 'vivah']):
                 response_style = "relationship_advice"
@@ -865,6 +868,9 @@ class EnhancedAstroBotAPI:
             # Build remedies section for strict appending by the model (compact: one free + one paid)
             remedies_section = generate_remedies(question, chart_data, compact=True)
 
+            safe_earliest_marriage_year = earliest_marriage_year or (birth_year + min_ages["relationship_advice"])
+            logger.info(f"[AI] response_style={response_style}, earliest_realistic_year={earliest_realistic_year}, earliest_marriage_year={safe_earliest_marriage_year}")
+
             system_prompt = f"""
             You are AstroBot, an experienced, calm, wise, and compassionate KP Jyotishacharya (Digital Pandit Ji). 
             Your persona MUST match this EXACT structure and tone (using Hinglish and appropriate greetings):
@@ -883,7 +889,7 @@ class EnhancedAstroBotAPI:
             **CRITICAL ACCURACY & LOGIC RULES (Prediction Accuracy and Realism):**
             6. **Data-Driven:** Base your answer strictly on the provided CHART DATA and KP ASTROLOGY KNOWLEDGE.
             7. **AGE/LOGIC OVERRIDE (NON-NEGOTIABLE):** For any prediction, the **Prediction Year MUST be GREATER THAN or EQUAL TO** the **Earliest Realistic Year** ({earliest_realistic_year}).
-            8. **CHRONOLOGY CHECK (CHILDREN ONLY):** If the question is about **Children/Santan**, you **MUST** ensure the prediction year is **AT LEAST 1 YEAR GREATER** than the earliest realistic marriage year ({earliest_marriage_year}).
+8. **CHRONOLOGY CHECK (CHILDREN ONLY):** If the question is about **Children/Santan**, you **MUST** ensure the prediction year is **AT LEAST 1 YEAR GREATER** than the earliest realistic marriage year ({safe_earliest_marriage_year}).
             9. **Dasha Priority (Timing Source):** The timing for prediction MUST be sourced from the Dasha periods, ensuring all chronological and logical rules are satisfied.
             10. **Time Reference:** ALWAYS use specific years/timeframes (e.g., 'mid-2049') derived from the Dasha data, ensuring they are **logically sound**.
             11. **REMEDY INSTRUCTION (NON-NEGOTIABLE):** After your final blessing and follow-up question, you **MUST** append the content found between ---REMEDY_SECTION_START--- and ---REMEDY_SECTION_END--- **EXACTLY AS IS**, without modifying any text or markdown.
