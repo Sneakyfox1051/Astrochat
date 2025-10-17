@@ -476,29 +476,18 @@ class EnhancedAstroBotAPI:
             logger.error(f"Error fetching Birth Details: {e}")
             api_data['birth_details'] = {}
             
-        # Fetch Mangal Dosha
+        # Fetch Kundli (Advanced)
         try:
-            mangaldosha_url = f"{base_url}/mangal-dosha"
-            md_response = requests.get(mangaldosha_url, headers=headers, params=common_params)
-            md_response.raise_for_status()
-            api_data['mangal_dosha'] = md_response.json().get('data', {})
-            logger.info("✅ Mangal Dosha fetched successfully")
-        except Exception as e:
-            logger.error(f"Error fetching Mangal Dosha: {e}")
-            api_data['mangal_dosha'] = {"is_present": False, "description": "Mangal Dosha calculation failed."}
-            
-        # Fetch Kundli
-        try:
-            kundli_url = f"{base_url}/kundli"
+            kundli_url = f"{base_url}/kundli/advanced"
             kundli_response = requests.get(kundli_url, headers=headers, params=common_params)
             kundli_response.raise_for_status()
             api_data['kundli'] = kundli_response.json().get('data', {})
-            logger.info("✅ Kundli fetched successfully")
+            logger.info("✅ Kundli Advanced fetched successfully")
         except Exception as e:
             logger.error(f"Error fetching Kundli: {e}")
             api_data['kundli'] = {}
             
-        # Use Kundli data for chart (since chart endpoint has parameter issues)
+        # Use Kundli data for chart (JSON fallback)
         try:
             # The kundli data already contains chart information
             kundli_data = api_data.get('kundli', {})
@@ -513,39 +502,17 @@ class EnhancedAstroBotAPI:
         except Exception as e:
             logger.error(f"Error processing Chart data: {e}")
             api_data['chart'] = {}
-            
-        # Fetch Yoga
+
+        # Fetch Bhava Positions (KP Houses)
         try:
-            yoga_url = f"{base_url}/yoga"
-            yoga_response = requests.get(yoga_url, headers=headers, params=common_params)
-            yoga_response.raise_for_status()
-            api_data['yoga'] = yoga_response.json().get('data', {})
-            logger.info("✅ Yoga fetched successfully")
+            bhava_url = f"{base_url}/bhava-position"
+            bhava_response = requests.get(bhava_url, headers=headers, params=common_params)
+            bhava_response.raise_for_status()
+            api_data['bhava_position'] = bhava_response.json().get('data', {}).get('bhava_position', [])
+            logger.info("✅ Bhava Positions fetched successfully")
         except Exception as e:
-            logger.error(f"Error fetching Yoga: {e}")
-            api_data['yoga'] = {}
-            
-        # Fetch Dasha Periods
-        try:
-            dasha_url = f"{base_url}/dasha-periods"
-            dasha_response = requests.get(dasha_url, headers=headers, params=common_params)
-            dasha_response.raise_for_status()
-            api_data['dasha_periods'] = dasha_response.json().get('data', {})
-            logger.info("✅ Dasha Periods fetched successfully")
-        except Exception as e:
-            logger.error(f"Error fetching Dasha Periods: {e}")
-            api_data['dasha_periods'] = {}
-            
-        # Fetch Sade Sati
-        try:
-            sade_sati_url = f"{base_url}/sade-sati"
-            sade_sati_response = requests.get(sade_sati_url, headers=headers, params=common_params)
-            sade_sati_response.raise_for_status()
-            api_data['sade_sati'] = sade_sati_response.json().get('data', {})
-            logger.info("✅ Sade Sati fetched successfully")
-        except Exception as e:
-            logger.error(f"Error fetching Sade Sati: {e}")
-            api_data['sade_sati'] = {}
+            logger.error(f"Error fetching Bhava Positions: {e}")
+            api_data['bhava_position'] = []
 
         # Process Data into CHART_DATA format
         planets_in_house = {}
@@ -564,21 +531,26 @@ class EnhancedAstroBotAPI:
             ascendant_sign = lagna_planet.get('rasi', {}).get('id')
             ascendant_sign_name = lagna_planet.get('rasi', {}).get('name')
                 
-        # Map Planets to Houses
-        if ascendant_sign is not None:
+        # Map Planets to Houses using Bhava Positions if available; fallback to rasi-based
+        bhava_map = {p.get('id'): p.get('bhava') for p in api_data.get('bhava_position', []) if p.get('id') is not None}
+        if api_data['planet_positions']:
             for planet in api_data['planet_positions']:
-                sign_id = planet.get('rasi', {}).get('id')
+                planet_id = planet.get('id')
                 planet_name = planet.get('name')
-                
-                # House = (Planet Sign - Ascendant Sign + 12) % 12 + 1
-                house_num = (sign_id - ascendant_sign + 12) % 12 + 1
-                
-                planet_code = planet_code_map.get(planet_name, planet_name[:2])
-                
+                house_num = None
+                if planet_id in bhava_map and isinstance(bhava_map[planet_id], int) and bhava_map[planet_id] > 0:
+                    house_num = bhava_map[planet_id]
+                elif ascendant_sign is not None:
+                    sign_id = planet.get('rasi', {}).get('id')
+                    if isinstance(sign_id, int):
+                        house_num = (sign_id - ascendant_sign + 12) % 12 + 1
+                if house_num is None:
+                    continue
+                planet_code = planet_code_map.get(planet_name, (planet_name or '')[:2])
                 if house_num not in planets_in_house:
                     planets_in_house[house_num] = []
-                if planet_code not in planets_in_house[house_num]:
-                     planets_in_house[house_num].append(planet_code)
+                if planet_code and planet_code not in planets_in_house[house_num]:
+                    planets_in_house[house_num].append(planet_code)
         
         # Final CHART_DATA Structure with comprehensive ProKerala data
         final_chart_data = {
@@ -596,13 +568,10 @@ class EnhancedAstroBotAPI:
             # ProKerala API Data
             "prokerala_data": {
                 "birth_details": api_data['birth_details'],
-                "mangal_dosha": api_data['mangal_dosha'],
                 "kundli": api_data['kundli'],
                 "chart": api_data['chart'],
-                "yoga": api_data['yoga'],
-                "dasha_periods": api_data['dasha_periods'],
-                "sade_sati": api_data['sade_sati'],
-                "planet_positions": api_data['planet_positions']
+                "planet_positions": api_data['planet_positions'],
+                "bhava_position": api_data.get('bhava_position', [])
             },
             
             # Chart Configuration
@@ -612,11 +581,11 @@ class EnhancedAstroBotAPI:
                 "astrology_system": "KP"
             },
             
-            # Legacy format for backward compatibility
-            "mangal_dosha": {
-                "is_present": api_data['mangal_dosha'].get('is_present', False),
-                "description": api_data['mangal_dosha'].get('description', "Mangal Dosha calculation complete.")
-            }
+            # Legacy fields (best-effort) derived from Kundli Advanced if available
+            "mangal_dosha": api_data.get('kundli', {}).get('mangal_dosha', {}),
+            "dasha_periods": api_data.get('kundli', {}).get('dasha_periods', {}),
+            "sade_sati": api_data.get('kundli', {}).get('sade_sati', {}),
+            "yoga": api_data.get('kundli', {}).get('yoga_details', [])
         }
         
         return final_chart_data
