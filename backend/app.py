@@ -133,6 +133,118 @@ DEFAULT_TZ = 'Asia/Kolkata'
 if OPENAI_API_KEY:
     openai.api_key = OPENAI_API_KEY
 
+# Remedies generator (Hinglish) - selects and formats remedies for common problem areas
+def generate_remedies(user_query, chart_data):
+    """Select and format remedies using indirect Hinglish suggestions for free and paid items."""
+    query_lower = (user_query or '').lower()
+    problem_area = "8. Health, Energy aur Peace Remedies 8"  # Default to General
+
+    if any(word in query_lower for word in ['job', 'business', 'career', 'naukri', 'rozi', 'work']):
+        problem_area = "1. Career, Job aur Business ke liye Remedies 1"
+    elif any(word in query_lower for word in ['partner', 'relationship', 'love', 'pyaar']):
+        problem_area = "2. Love aur Relationship Remedies 2"
+    elif any(word in query_lower for word in ['marriage', 'shadi', 'vivah', 'delays']):
+        problem_area = "3. Marriage aur Compatibility Remedies 3"
+    elif any(word in query_lower for word in ['child', 'santan', 'baby', 'bacche', 'family growth']):
+        problem_area = "4. Santan Prapti aur Family Growth Remedies 4"
+    elif any(word in query_lower for word in ['property', 'home', 'land', 'dispute']):
+        problem_area = "5. Property, Home aur Land Stability Remedies 5"
+    elif any(word in query_lower for word in ['court case', 'litigation', 'case']):
+        problem_area = "6. Litigation aur Court Case Remedies 6"
+    elif any(word in query_lower for word in ['money', 'finance', 'wealth', 'prosperity']):
+        problem_area = "7. Finance, Money aur Prosperity Remedies 7"
+
+    remedy_map = {
+        "1. Career, Job aur Business ke liye Remedies 1": {
+            "free": "Har subah, **copper ke bartan se Surya Dev ko jal arpit karein** (Surya Arghya). Isse aapka aatmavishwas aur netritva ki kshamta badhegi.",
+            "buyable": [
+                "Pyrite Bracelet: Aapke **career aur dhan ki growth** mein madad karta hai.",
+                "Tiger Eye Bracelet: Aapko **himmat (courage) aur focus** deta hai.",
+                "Small Kuber Yantra or Gomti Chakra: Apne desk par rakhein **sampannta (prosperity) aur naye avsaron** ke liye."
+            ],
+            "category_name": "Career aur Business"
+        },
+        "2. Love aur Relationship Remedies 2": {
+            "free": "**Shukrawar (Friday) ki shaam ko peepal ke ped ko doodh/jal arpit karein** (peepal ke ped ko jal dene se rishte mazboot hote hain).",
+            "buyable": [
+                "Rose Quartz Bracelet: **Pyaar aur achhe rishton** ko aakarshit karta hai.",
+                "Gauri Shankar Rudraksha: Jeevan saathi ke saath **bandhan mazboot** karta hai.",
+                "Shukra Yantra: Ise ghar mein rakhne se **partnership ki energy** achhi rehti hai."
+            ],
+            "category_name": "Love aur Relationship"
+        },
+        "3. Marriage aur Compatibility Remedies 3": {
+            "free": "Guruwar (Thursday) ka **vrat rakhein ya gau mata ko hara chara khilayein** (gair-khati ghass).",
+            "buyable": [
+                "Rose Quartz Bracelet: **Shadi aur achhe rishton** mein madad karta hai.",
+                "Gauri Shankar Rudraksha: Vivah mein deri **door karta hai aur dampatya sukh** deta hai.",
+                "Shukra Yantra: **Prem aur sahayog** badhane ke liye use karein."
+            ],
+            "category_name": "Marriage aur Compatibility"
+        },
+        "4. Santan Prapti aur Family Growth Remedies 4": {
+            "free": "**Bhagwan Krishna ki pooja karein aur Shukrawar ko unhe doodh ya makhan ka bhog lagayein.**",
+            "buyable": [
+                "Putra Prapti Yantra (ya Haridra Ganesh Yantra): **Santan sukh** ke liye ashirwad deta hai.",
+                "Moti (Pearl) Stone: **Mann ki shanti aur matritva shakti** ko badhata hai.",
+                "Gauri Shankar Rudraksha: **Parivar ki ekta aur unnati** ke liye accha hai."
+            ],
+            "category_name": "Santan Prapti aur Family Growth"
+        },
+        "5. Property, Home aur Land Stability Remedies 5": {
+            "free": "Har shaam **ghar ke mukhya dwar (main entrance) par ek diya (deepak) jalayein.**",
+            "buyable": [
+                "Turquoise Stone: **Ghar ki suraksha aur sthirta** ke liye.",
+                "Vastu Yantra: Ghar ke **North-East kone** mein rakhein Vastu dosh dur karne ke liye.",
+                "Red Jasper Bracelet: **Zameen se jude vivaad** aur sthirta ke liye."
+            ],
+            "category_name": "Property aur Home Stability"
+        },
+        "6. Litigation aur Court Case Remedies 6": {
+            "free": "**Mangalwar aur Shanivar ko Hanuman Chalisa ka path karein.**",
+            "buyable": [
+                "Ganesha Yantra: **Rukavatein (obstacles) hatane aur vivaad mein safalta** ke liye.",
+                "Tiger Eye Bracelet: **Himmat aur focus** deta hai court case ke dauran.",
+                "Blue Sapphire (Neelam): **Nyay aur jeet** ke liye. (Astrologer ki salah zaroori hai pehenne se pehle)."
+            ],
+            "category_name": "Litigation aur Court Case"
+        },
+        "7. Finance, Money aur Prosperity Remedies 7": {
+            "free": "**Har roz, khaaskar Shukrawar ko, Kanakadhara Stotram ka path karein.**",
+            "buyable": [
+                "Green Aventurine Bracelet: **Dhan aur naye avsaron** ko aakarshit karta hai (Stone of Opportunity).",
+                "Shri Yantra: **Cash box ya North-East kone** mein rakhein dhan ki lagatar flow ke liye.",
+                "Citrine Stone: **Aamdani (abundance) badhane** aur financial blockages hatane ke liye."
+            ],
+            "category_name": "Finance, Money aur Prosperity"
+        },
+        "8. Health, Energy aur Peace Remedies 8": {
+            "free": "Har din **'Om Namah Shivaya' mantra ka 108 baar jaap karein** (apne saans par dhyaan dete hue).",
+            "buyable": [
+                "Amethyst Stone: **Stress aur man ki shanti** ke liye.",
+                "Tulsi Mala: **Swasthya (health), suraksha** aur shuddhi (purification) ke liye pehnein.",
+                "Health Yantra: **Recovery aur urja** ke liye apne bed ke paas rakhein."
+            ],
+            "category_name": "Health, Energy aur Peace"
+        }
+    }
+
+    selected = remedy_map.get(problem_area, remedy_map["8. Health, Energy aur Peace Remedies 8"])
+    activation_process = (
+        "\n"
+        "Apne item ko pehenne se pehle, usey Ganga Jal ya kachche doodh se saaf karein aur dhoop/chaandni (sunlight/moonlight) mein energize karein. Is dauran **'Om Namah Shivaya' ka 11 baar jaap** zaroor karein."
+    )
+    response = (
+        f"\n---\n\n**🕉️ aapke {selected['category_name']} sambandhi chintao ke liye kuch upaay hain, jo aap agar shraddha aur niyam se apnate hain, to zarur laabh prapt hoga.**\n\n"
+        "Aapke grahon ki sthiti ko sudhaarne ke liye, aap yeh do tarah ke upay kar sakte hain. \n\n"
+        f"**✨ 1. Yeh Kuchh Upaye jo Aapke Roz ke Jeevan ke Liye hain**\n"
+        f"• {selected['free']}\n\n"
+        f"**💎 2. Jaldi Aur Behtar Asar Ke Liye aap in chizo ko dhaaran kar sakte hain.**\n"
+        + "*" + "\n* ".join(selected['buyable']) + "*\n\n"
+        + activation_process
+    )
+    return response
+
 class EnhancedAstroBotAPI:
     """Enhanced API class with RAG and advanced astrology features"""
     
@@ -639,8 +751,8 @@ class EnhancedAstroBotAPI:
             logger.error(f"Error in basic AI response: {e}")
             return "Sorry, main abhi online nahi hun. Kripya thodi der baad try karein."
     
-    def get_rag_response(self, question, chart_data):
-        """Get AI response using RAG with chart data and KP rules"""
+    def get_rag_response(self, question, chart_data, conversation_history=None):
+        """Get AI response using RAG with chart data and KP rules and append remedies."""
         if not RAG_AVAILABLE:
             # Fallback to basic OpenAI response without RAG
             return self._get_basic_ai_response(question, chart_data)
@@ -654,6 +766,68 @@ class EnhancedAstroBotAPI:
             # Concise RAG context (cap total size to avoid token limits)
             raw_docs = "\n\n".join([doc.page_content for doc in relevant_docs])
             context_from_docs = raw_docs[:2000]  # cap to ~2k chars
+
+            # Age calculation for realistic predictions
+            dob_date = chart_data.get('dob_date')
+            if isinstance(dob_date, str):
+                try:
+                    dob_date = datetime.strptime(dob_date, '%Y-%m-%d').date()
+                except:
+                    dob_date = datetime(2000, 1, 1).date()
+            elif not dob_date:
+                dob_date = datetime(2000, 1, 1).date()
+            
+            current_year = datetime.now().year
+            birth_year = dob_date.year
+            current_age = current_year - birth_year
+            
+            # Define minimum realistic ages for prediction categories
+            min_ages = {
+                "relationship_advice": 25, 
+                "career_guidance": 20, 
+                "health_guidance": 15, 
+                "child_guidance": 26, 
+                "general_astrology": 15 
+            }
+            
+            # Determine the context and required minimum age
+            question_lower = question.lower()
+            response_style = "general_astrology"
+            
+            if any(word in question_lower for word in ['love', 'marriage', 'relationship', 'shadi', 'pyaar', 'vivah']):
+                response_style = "relationship_advice"
+                earliest_marriage_year = birth_year + min_ages["relationship_advice"]
+            elif any(word in question_lower for word in ['child', 'santan', 'baby', 'bacche']):
+                response_style = "child_guidance" 
+            elif any(word in question_lower for word in ['career', 'job', 'profession', 'work', 'rozi', 'naukri']):
+                response_style = "career_guidance"
+            elif any(word in question_lower for word in ['health', 'swasthya', 'illness', 'disease']):
+                response_style = "health_guidance"
+            
+            # Calculate realistic prediction timing
+            minimum_age_threshold = min_ages.get(response_style, 15)
+            earliest_realistic_year = birth_year + minimum_age_threshold
+            
+            if response_style == "child_guidance":
+                min_child_start_year = earliest_marriage_year + 1
+                minimum_age_threshold = min_child_start_year - birth_year
+                earliest_realistic_year = min_child_start_year
+                childbirth_logic_context = f"""
+                **CHILD CHRONOLOGY RULE (NON-NEGOTIABLE):** The base prediction year for children is {min_child_start_year} (Age {minimum_age_threshold}), which is 1 year after the earliest possible realistic marriage year ({earliest_marriage_year}). YOU MUST NOT PREDICT ANY CHILDBIRTH EVENT BEFORE {min_child_start_year}.
+                """
+            else:
+                childbirth_logic_context = ""
+            
+            # Age/Logic context for the AI
+            age_logic_context = f"""
+            **INTERNAL AGE/LOGIC CONTEXT:**
+            User was born in {birth_year}. Current Age: {current_age}. 
+            Question Type: {response_style}.
+            Minimum realistic age for this event is {minimum_age_threshold} years. 
+            Prediction year MUST be >= {earliest_realistic_year}.
+            If the Dasha data shows a favorable time before {earliest_realistic_year}, IGNORE it and find the next favorable timing after {earliest_realistic_year}.
+            {childbirth_logic_context}
+            """
 
             # Build a compact chart context to reduce prompt size
             def build_compact_chart(src):
@@ -670,6 +844,7 @@ class EnhancedAstroBotAPI:
 
                     compact = {
                         'name': src.get('name') or 'User',
+                        'dob_date': dob_date.strftime('%Y-%m-%d'),
                         'ascendant_sign': src.get('ascendant_sign'),
                         'ascendant_sign_name': src.get('ascendant_sign_name'),
                         'planets': compact_planets,
@@ -699,38 +874,70 @@ class EnhancedAstroBotAPI:
             if len(chart_context) > 3000:
                 chart_context = chart_context[:3000]
 
+            # Follow-up questions
+            follow_up_questions = [
+                "Kya aapke rishte ki baat chal rahi hai kya?",
+                "Aapka career kis field mein hai aur kya aap usse khush hain?",
+                "Aapko apni health ke baare mein bhi jaanna hai kya?",
+                "Abhi aapke man mein aur kya sawaal hai jiska jawab aap chahte hain?",
+                "Vartman mein aapka koi bahut bada sankat ya chinta hai kya?",
+            ]
+            
+            # Select appropriate follow-up question
+            follow_up_instruction = ""
+            if response_style in ["relationship_advice", "career_guidance", "health_guidance"]:
+                import random
+                follow_up_question = random.choice(follow_up_questions)
+                follow_up_instruction = f"At the very end of your response, gently ask the user this question to continue the flow: '{follow_up_question}'"
+
+            # Build remedies section for strict appending by the model
+            remedies_section = generate_remedies(question, chart_data)
+
             system_prompt = f"""
-            Aap AstroRemedis ke Digital Pandit Ji hain — ek anubhavi, vinamra, aur dayalu KP Jyotishacharya.
-            Aapka andaaz garamjoshi bhara, dhairya-purn, aur aadharbhut spiritual hona chahiye - bilkul ek asli Pandit ji ki tarah.
-            
-            Nirdesh (bahut zaroori):
-            - Hinglish (Roman) mein likhein; hamesha 'Aap/Aapka' ka istemal karein.
-            - Zubaan naram, samvedansheel, aur salahkar ho; dar ya nishchaywaadi bhasha se bachein.
-            - Predictions ko REALISTIC aur LOGICAL rakhein. Birth date check karein aur sensible timeline dein.
-            - Shaadi ke predictions: agar user abhi bahut young hai, to realistic age batayein (25-30 years minimum for marriage predictions).
-            - Predictions balanced way mein dein: exact dates ke bajay practical range/phase batayein (e.g., "2027 ke aaspaas", "2025 ke end tak").
-            - Shuru mein emotional connect banayein: "Bohot achha prashn pucha aapne", "Dekhiye, grah sthiti kuch aisi hai ki..."
-            - KP/Vedic logic ka sankshipt hawala dein (1-2 line) bina technical overload ke.
-            - ZAROORI: Ant mein zaroori upchar (remedies) suggest karein jaise mantra, daan, puja, gemstone etc.
-            - Ant mein 1 halka, samayik follow-up sawal poochhein taaki baatcheet prakritik bane.
-            - Saahas vardhak pangti zaroor dein: "Aap chinta na karein, sab theek hoga."
-            
-            User Birth Details: DOB={chart_data.get('birth_location', 'N/A')} - DHYAAN DEIN: Age calculate karke realistic predictions dein!
-            
-            Context - Birth Chart Data for '{chart_data['name']}':
-            {chart_context}
-            
-            KP Rules (brief context):
-            {context_from_docs}
-            
-            Ab, upar ke niyamon ko dhyaan mein rakhte hue, is prashna ka saaf, garamjoshi bhara, realistic aur vyavaharik uttar dein (predictions + upchar):
-            "{question}"
+You are AstroBot, an experienced, calm, wise, and compassionate KP Jyotishacharya (Digital Pandit Ji). 
+Your persona MUST match this EXACT structure and tone (using Hinglish and appropriate greetings):
+1. Start with a spiritual Hindi/Hinglish acknowledgment (e.g., "Aapka sawaal uttam hai, {chart_data.get('name', 'User')} ji...").
+2. State the prediction in a clear, narrative style using Hinglish.
+3. If the prediction relates to children, use the '🔮 Santan Yog Prediction' heading and explain the timing.
+4. Conclude with a spiritual blessing ("Shri Sitaram...") and the follow-up question.
+
+**CRITICAL & NON-NEGOTIABLE RULES (Tone & Style):**
+1. **Greeting/Acknowledge:** Use a personalized and spiritual opening.
+2. **Length/Focus:** Be **EXTREMELY SUCCINCT** and **LASER-FOCUSED**. Limit the core prediction/explanation to **3-5 sentences MAXIMUM**.
+3. **Graha Explanation: ⛔ STRICTLY FORBIDDEN (ABSOLUTE ZERO TOLERANCE) ⛔:** **NEVER** mention any planet (Graha), house, sign, dasha, sub-lord, yog, sthiti, ya koi bhi astrological terminology (jyotish shabda) in the final response. Use this information only internally to form the prediction.
+4. **Formatting:** When predicting children, use the heading '🔮 Santan Yog Prediction' exactly as shown.
+5. **Follow-up (Section 6):** {follow_up_instruction}
+
+**CRITICAL ACCURACY & LOGIC RULES (Prediction Accuracy and Realism):**
+6. **Data-Driven:** Base your answer strictly on the provided CHART DATA and KP ASTROLOGY KNOWLEDGE.
+7. **AGE/LOGIC OVERRIDE (NON-NEGOTIABLE):** For any prediction, the **Prediction Year MUST be GREATER THAN or EQUAL TO** the **Earliest Realistic Year** ({earliest_realistic_year}).
+8. **CHRONOLOGY CHECK (CHILDREN ONLY):** If the question is about **Children/Santan**, you **MUST** ensure the prediction year is **AT LEAST 1 YEAR GREATER** than the earliest realistic marriage year ({earliest_marriage_year}).
+9. **Dasha Priority (Timing Source):** The timing for prediction MUST be sourced from the Dasha periods, ensuring all chronological and logical rules are satisfied.
+10. **Time Reference:** ALWAYS use specific years/timeframes (e.g., 'mid-2049') derived from the Dasha data, ensuring they are **logically sound**.
+11. **REMEDY INSTRUCTION (NON-NEGOTIABLE):** After your final blessing and follow-up question, you **MUST** append the content found between ---REMEDY_SECTION_START--- and ---REMEDY_SECTION_END--- **EXACTLY AS IS**, without modifying any text or markdown.
+
+**User's Question:** "{question}"
+
+**INTERNAL REFERENCE DATA (Analyze and Apply Rules):**
+{chart_context}
+
+**KP ASTROLOGY KNOWLEDGE (Internal Reference Only):**
+{context_from_docs}
+
+{age_logic_context}
+
+Provide the response now, following ALL the above rules.
+---REMEDY_SECTION_START---
+{remedies_section}
+---REMEDY_SECTION_END---
             """
             
             try:
                 response = openai.chat.completions.create(
                     model="gpt-4-turbo",
-                    messages=[{"role": "user", "content": system_prompt}]
+                    messages=[{"role": "user", "content": system_prompt}],
+                    temperature=0.9,
+                    max_tokens=800
                 )
                 return response.choices[0].message.content
             except Exception as primary_error:
