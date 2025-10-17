@@ -134,8 +134,10 @@ if OPENAI_API_KEY:
     openai.api_key = OPENAI_API_KEY
 
 # Remedies generator (Hinglish) - selects and formats remedies for common problem areas
-def generate_remedies(user_query, chart_data):
-    """Select and format remedies using indirect Hinglish suggestions for free and paid items."""
+def generate_remedies(user_query, chart_data, compact=False):
+    """Select and format remedies using indirect Hinglish suggestions for free and paid items.
+    If compact=True, return exactly one free and one paid item with a short CTA.
+    """
     query_lower = (user_query or '').lower()
     problem_area = "8. Health, Energy aur Peace Remedies 8"  # Default to General
 
@@ -231,19 +233,29 @@ def generate_remedies(user_query, chart_data):
 
     selected = remedy_map.get(problem_area, remedy_map["8. Health, Energy aur Peace Remedies 8"])
     activation_process = (
-        "\n"
-        "Apne item ko pehenne se pehle, usey Ganga Jal ya kachche doodh se saaf karein aur dhoop/chaandni (sunlight/moonlight) mein energize karein. Is dauran **'Om Namah Shivaya' ka 11 baar jaap** zaroor karein."
+        "Apne item ko pehenne se pehle, usey Ganga Jal ya kachche doodh se saaf karein aur dhoop/chaandni mein energize karein. Is dauran 'Om Namah Shivaya' ka 11 baar jaap karein."
     )
-    response = (
-        f"\n---\n\n**🕉️ aapke {selected['category_name']} sambandhi chintao ke liye kuch upaay hain, jo aap agar shraddha aur niyam se apnate hain, to zarur laabh prapt hoga.**\n\n"
-        "Aapke grahon ki sthiti ko sudhaarne ke liye, aap yeh do tarah ke upay kar sakte hain. \n\n"
-        f"**✨ 1. Yeh Kuchh Upaye jo Aapke Roz ke Jeevan ke Liye hain**\n"
-        f"• {selected['free']}\n\n"
-        f"**💎 2. Jaldi Aur Behtar Asar Ke Liye aap in chizo ko dhaaran kar sakte hain.**\n"
-        + "*" + "\n* ".join(selected['buyable']) + "*\n\n"
-        + activation_process
-    )
-    return response
+
+    if compact:
+        paid_one = selected['buyable'][0] if selected.get('buyable') else ''
+        return (
+            f"\n---\n"
+            f"**Upay – {selected['category_name']}**\n"
+            f"- Free Remedy: {selected['free']}\n"
+            f"- Paid Remedy: {paid_one} — aap yeh AstroRemedis se le sakte hain.\n"
+            f"- Activation: {activation_process}"
+        )
+    else:
+        response = (
+            f"\n---\n\n**🕉️ aapke {selected['category_name']} sambandhi chintao ke liye kuch upaay hain, jo aap agar shraddha aur niyam se apnate hain, to zarur laabh prapt hoga.**\n\n"
+            "Aapke grahon ki sthiti ko sudhaarne ke liye, aap yeh do tarah ke upay kar sakte hain. \n\n"
+            f"**✨ 1. Yeh Kuchh Upaye jo Aapke Roz ke Jeevan ke Liye hain**\n"
+            f"• {selected['free']}\n\n"
+            f"**💎 2. Jaldi Aur Behtar Asar Ke Liye aap in chizo ko dhaaran kar sakte hain.**\n"
+            + "*" + "\n* ".join(selected['buyable']) + "*\n\n"
+            + activation_process
+        )
+        return response
 
 class EnhancedAstroBotAPI:
     """Enhanced API class with RAG and advanced astrology features"""
@@ -892,8 +904,8 @@ class EnhancedAstroBotAPI:
                 follow_up_question = random.choice(follow_up_questions)
                 follow_up_instruction = f"At the very end of your response, gently ask the user this question to continue the flow: '{follow_up_question}'"
 
-            # Build remedies section for strict appending by the model
-            remedies_section = generate_remedies(question, chart_data)
+            # Build remedies section for strict appending by the model (compact: one free + one paid)
+            remedies_section = generate_remedies(question, chart_data, compact=True)
 
             system_prompt = f"""
 You are AstroBot, an experienced, calm, wise, and compassionate KP Jyotishacharya (Digital Pandit Ji). 
