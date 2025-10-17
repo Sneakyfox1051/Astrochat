@@ -569,16 +569,27 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         const variableDelay = looksLikePrediction ? Math.min(2000, Math.floor((botText?.length || 0) / 15) * 80) : 500;
         const delayMs = baseDelay + variableDelay; // Total 8-10 seconds for predictions
         await new Promise(res => setTimeout(res, delayMs));
-        // Remove typing indicator and add botText
-        setMessages(prev => {
-          const withoutTyping = prev.filter(msg => !msg.isTyping);
-          return [...withoutTyping, {
-            id: nextMessageId(),
-            text: botText,
-            sender: 'pandit',
-            timestamp: new Date().toLocaleTimeString()
-          }];
-        });
+        // Remove typing indicator and add botText in 2-3 chunks for a human feel
+        const parts = (botText || '').split(/\n\s*\n/).filter(Boolean).slice(0, 3);
+        setMessages(prev => prev.filter(msg => !msg.isTyping));
+        const sendChunk = async (idx) => {
+          if (idx >= parts.length) return;
+          const chunk = parts[idx].trim();
+          if (chunk) {
+            setMessages(prev => ([...prev, {
+              id: nextMessageId(),
+              text: chunk,
+              sender: 'pandit',
+              timestamp: new Date().toLocaleTimeString()
+            }]));
+          }
+          if (idx < parts.length - 1) {
+            const gap = 900 + Math.floor(Math.random() * 600); // 0.9s - 1.5s between chunks
+            await new Promise(r => setTimeout(r, gap));
+          }
+          await sendChunk(idx + 1);
+        };
+        await sendChunk(0);
         // Optionally add a gentle follow-up question to keep flow natural
         if (currentStep === 'chatting' || currentStep === 'chart_generated') {
           const fupDelay = 1200 + Math.floor(Math.random() * 1200);

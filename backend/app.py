@@ -257,6 +257,22 @@ def generate_remedies(user_query, chart_data, compact=False):
         )
         return response
 
+
+def should_append_remedies(user_query: str) -> bool:
+    """Return True only when the user expresses a problem/pain, not generic inquiries.
+    Ensures remedies are not added for neutral questions like "career ke bare mein bataiye".
+    """
+    if not user_query:
+        return False
+    q = user_query.lower()
+    problem_markers = [
+        'problem', 'issue', 'dikkat', 'pareshani', 'musibat', 'ruk', 'delay', 'deri',
+        'nahi mil', 'nahi ho', 'stuck', 'loss', 'down', 'court', 'case', 'breakup',
+        'health issue', 'bimari', 'paise ki dikkat', 'financial problem',
+        'job nahi', 'promotion nahi', 'marriage delay', 'santan nahi'
+    ]
+    return any(marker in q for marker in problem_markers)
+
 class EnhancedAstroBotAPI:
     """Enhanced API class with RAG and advanced astrology features"""
     
@@ -865,8 +881,8 @@ class EnhancedAstroBotAPI:
                 follow_up_question = random.choice(follow_up_questions)
                 follow_up_instruction = f"At the very end of your response, gently ask the user this question to continue the flow: '{follow_up_question}'"
 
-            # Build remedies section for strict appending by the model (compact: one free + one paid)
-            remedies_section = generate_remedies(question, chart_data, compact=True)
+            # Build remedies section only if the question implies a problem/pain
+            remedies_section = generate_remedies(question, chart_data, compact=True) if should_append_remedies(question) else ""
 
             safe_earliest_marriage_year = earliest_marriage_year or (birth_year + min_ages["relationship_advice"])
             logger.info(f"[AI] response_style={response_style}, earliest_realistic_year={earliest_realistic_year}, earliest_marriage_year={safe_earliest_marriage_year}")
@@ -905,9 +921,7 @@ class EnhancedAstroBotAPI:
             {age_logic_context}
 
             Provide the response now, following ALL the above rules.
-            ---REMEDY_SECTION_START---
-            {remedies_section}
-            ---REMEDY_SECTION_END---
+{('---REMEDY_SECTION_START---\n' + remedies_section + '\n---REMEDY_SECTION_END---') if remedies_section else ''}
                         """
             
             try:
