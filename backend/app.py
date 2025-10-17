@@ -46,8 +46,8 @@ logger = logging.getLogger(__name__)
 
 # LangChain imports - Optional for RAG functionality
 try:
-from langchain_community.document_loaders import Docx2txtLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain_community.document_loaders import Docx2txtLoader
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain_community.vectorstores import Chroma
     # Use OpenAI embeddings directly instead of langchain-openai
     import openai
@@ -279,8 +279,8 @@ class EnhancedAstroBotAPI:
         self.token_expiry = None
         self.vector_store = None
         if RAG_AVAILABLE:
-        self._load_vector_store()
-        else:
+            self._load_vector_store()
+            self._load_vector_store()
             logger.info("RAG system disabled - LangChain dependencies not available")
     
     def _load_vector_store(self):
@@ -547,15 +547,15 @@ class EnhancedAstroBotAPI:
                 elif ascendant_sign is not None:
                     sign_id = planet.get('rasi', {}).get('id')
                     if isinstance(sign_id, int):
-                house_num = (sign_id - ascendant_sign + 12) % 12 + 1
+                        house_num = (sign_id - ascendant_sign + 12) % 12 + 1
                         if house_num is None:
                             continue
                         planet_code = planet_code_map.get(planet_name, (planet_name or '')[:2])
                 if house_num not in planets_in_house:
-                    planets_in_house[house_num] = []
+                        if house_num not in planets_in_house:
+                            planets_in_house[house_num] = []
                         if planet_code and planet_code not in planets_in_house[house_num]:
-                     planets_in_house[house_num].append(planet_code)
-        
+                            planets_in_house[house_num].append(planet_code)
         # Final CHART_DATA Structure with comprehensive ProKerala data
         final_chart_data = {
             "name": name,
@@ -953,15 +953,15 @@ class EnhancedAstroBotAPI:
                         """
             
             try:
-            response = openai.chat.completions.create(
+                response = openai.chat.completions.create(
                 model="gpt-4-turbo",
                     messages=[{"role": "user", "content": system_prompt}],
                     temperature=0.9,
                     max_tokens=800
             )
-            return response.choices[0].message.content
+                )
+                return response.choices[0].message.content
             except Exception as primary_error:
-                # Fallback: smaller model and even shorter prompt to avoid rate/context limits
                 try:
                     short_prompt = system_prompt
                     if len(short_prompt) > 6000:
