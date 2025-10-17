@@ -446,7 +446,6 @@ class EnhancedAstroBotAPI:
         api_data = {
             'planet_positions': [],
             'mangal_dosha': {},
-            'birth_details': {},
             'kundli': {},
             'chart': {},
             'yoga': {},
@@ -465,16 +464,7 @@ class EnhancedAstroBotAPI:
             logger.error(f"Error fetching Planet Positions: {e}")
             return None
             
-        # Fetch Birth Details
-        try:
-            birth_details_url = f"{base_url}/birth-details"
-            birth_response = requests.get(birth_details_url, headers=headers, params=common_params)
-            birth_response.raise_for_status()
-            api_data['birth_details'] = birth_response.json().get('data', {})
-            logger.info("✅ Birth Details fetched successfully")
-        except Exception as e:
-            logger.error(f"Error fetching Birth Details: {e}")
-            api_data['birth_details'] = {}
+        # Birth Details removed as per request
             
         # Fetch Kundli (Advanced)
         try:
@@ -567,7 +557,6 @@ class EnhancedAstroBotAPI:
             
             # ProKerala API Data
             "prokerala_data": {
-                "birth_details": api_data['birth_details'],
                 "kundli": api_data['kundli'],
                 "chart": api_data['chart'],
                 "planet_positions": api_data['planet_positions'],
