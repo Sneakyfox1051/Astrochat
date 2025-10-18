@@ -937,7 +937,7 @@ class EnhancedAstroBotAPI:
             
             # Select appropriate follow-up question based on response style
             follow_up_instruction = ""
-            if response_style in ["relationship_advice", "career_guidance", "health_guidance"]:
+            if response_style in ["relationship_advice", "career_guidance", "health_guidance", "child_guidance"]:
                 import random
                 import time
                 
@@ -945,7 +945,8 @@ class EnhancedAstroBotAPI:
                 follow_up_category = {
                     "relationship_advice": "relationship",
                     "career_guidance": "career", 
-                    "health_guidance": "health"
+                    "health_guidance": "health",
+                    "child_guidance": "relationship"  # Children questions map to relationship category
                 }.get(response_style, "general")
                 
                 # Use current time to ensure different questions each time
@@ -1008,6 +1009,7 @@ class EnhancedAstroBotAPI:
 
             Provide the response now, following ALL the above rules.
             {('MANDATORY: You MUST include these EXACT remedies in your response as plain text (copy them exactly, including the natural empathetic introduction): ' + remedies_section) if remedies_section else ''}
+            {follow_up_instruction if follow_up_instruction else ''}
                         """
             
             try:
