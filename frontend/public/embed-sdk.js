@@ -19,6 +19,7 @@
     const css = `
     .ar-chat-bubble{position:fixed;bottom:24px;right:24px;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#e46b00 0%,#ff8800 100%);box-shadow:0 10px 24px rgba(255,179,0,.45);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:999999;border:none}
     .ar-chat-bubble img{width:28px;height:28px}
+    .ar-chat-bubble .chat-icon{width:28px;height:28px;color:#ffffff}
     .ar-chat-frame{position:fixed;bottom:24px;right:24px;border:0;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.4);overflow:hidden;z-index:999999;background:#0f0f23;display:none}
     .ar-chat-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(2px);z-index:999998;display:none}
     
@@ -27,11 +28,13 @@
       .ar-chat-frame{width:95vw!important;height:90vh!important;right:2.5vw!important;left:2.5vw!important;bottom:2.5vh!important;top:2.5vh!important}
       .ar-chat-bubble{bottom:16px;right:16px;width:56px;height:56px}
       .ar-chat-bubble img{width:24px;height:24px}
+      .ar-chat-bubble .chat-icon{width:24px;height:24px}
     }
     @media(min-width: 481px) and (max-width: 768px){
       .ar-chat-frame{width:90vw!important;height:85vh!important;right:5vw!important;left:5vw!important;bottom:7.5vh!important;top:7.5vh!important}
       .ar-chat-bubble{bottom:20px;right:20px;width:60px;height:60px}
       .ar-chat-bubble img{width:26px;height:26px}
+      .ar-chat-bubble .chat-icon{width:26px;height:26px}
     }
     @media(min-width: 769px) and (max-width: 1024px){
       .ar-chat-frame{width:70vw!important;height:80vh!important;right:15vw!important;left:15vw!important;bottom:10vh!important;top:10vh!important}
@@ -109,7 +112,7 @@
     bubble.className = 'ar-chat-bubble';
     bubble.style.right = posRight ? '24px' : '';
     bubble.style.left = posRight ? '' : '24px';
-    bubble.innerHTML = '<img alt="chat" src="'+(config.iconUrl||'https://gilded-baklava-db352f.netlify.app/Astro_LOGO.png')+'" />';
+    bubble.innerHTML = '<svg viewBox="0 0 24 24" class="chat-icon" style="width:28px;height:28px;color:#ffffff;"><path d="M21 12c0 4.418-4.03 8-9 8-1.068 0-2.09-.152-3.04-.433-.313-.095-.641-.143-.969-.143-.445 0-.885.09-1.292.266l-2.32 1.003c-.53.229-1.104-.27-.973-.83l.576-2.46c.087-.37.131-.752.131-1.135 0-.41-.06-.818-.177-1.211C2.34 13.633 2 12.343 2 11c0-4.418 4.03-8 9-8s10 3.582 10 9z" fill="currentColor"/><circle cx="8.5" cy="11.5" r="1" fill="#ffffff"/><circle cx="12" cy="11.5" r="1" fill="#ffffff"/><circle cx="15.5" cy="11.5" r="1" fill="#ffffff"/></svg>';
     bubble.addEventListener('click', () => { STATE.open ? close() : open(); });
     document.body.appendChild(bubble);
 

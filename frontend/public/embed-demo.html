@@ -18,7 +18,7 @@
 <body>
   <div class="hero">
     <h1>AstroRemedis Chat Embed Demo</h1>
-    <p>Click the round bubble at the bottom to open the embedded chat. The iframe now dynamically resizes based on your screen size!</p>
+    <p>Click the round bubble at the bottom to open the embedded chat. The iframe now dynamically resizes based on your screen size and uses the same chat icon as the main app!</p>
   </div>
   <div class="card">
     <h3>How to embed</h3>
@@ -43,10 +43,9 @@
         if (window.AstroRemedisChat && typeof window.AstroRemedisChat.init === 'function') {
           window.AstroRemedisChat.init({
             iframeUrl: 'https://gilded-baklava-db352f.netlify.app',
-            position: 'right',
+            position: 'right'
             // width and height are now automatically calculated based on screen size
-            // Place Astro_Client_Final.png in frontend/public/ so it resolves at this path
-            iconUrl: 'https://gilded-baklava-db352f.netlify.app/Astro_Client_Final.png'
+            // iconUrl is no longer needed - uses the same chat bubble icon as bottom navigation
           });
         } else if (attempts < 50) {
           setTimeout(tryInit, 100); // retry for up to ~5s
