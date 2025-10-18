@@ -239,9 +239,9 @@ def generate_remedies(user_query, chart_data, compact=False):
     if compact:
         paid_one = selected['buyable'][0] if selected.get('buyable') else ''
         return (
-            f"\n\nUpay {selected['category_name']}\n"
+            f"\n\nAdab ji, ghabrane ki koi baat nahi hai. Yadi aap chahte hain ki aapki problems thik ho ya kuch bhi use kar sakein, uske liye aap yeh upay kar sakte hain:\n\n"
             f"1. {selected['free']}\n"
-            f"2. {paid_one}\n"
+            f"2. {paid_one} (AstroRemedis pe uplabdh hai)\n\n"
             f"Activation: {activation_process}"
         )
     else:
@@ -1007,7 +1007,7 @@ class EnhancedAstroBotAPI:
             {age_logic_context}
 
             Provide the response now, following ALL the above rules.
-            {('MANDATORY: You MUST include these EXACT remedies in your response as plain text (copy them exactly): ' + remedies_section) if remedies_section else ''}
+            {('MANDATORY: You MUST include these EXACT remedies in your response as plain text (copy them exactly, including the natural empathetic introduction): ' + remedies_section) if remedies_section else ''}
                         """
             
             try:
