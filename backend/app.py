@@ -266,7 +266,8 @@ def should_append_remedies(user_query: str) -> bool:
         'problem', 'issue', 'dikkat', 'pareshani', 'musibat', 'ruk', 'delay', 'deri',
         'nahi mil', 'nahi ho', 'stuck', 'loss', 'down', 'court', 'case', 'breakup',
         'health issue', 'bimari', 'paise ki dikkat', 'financial problem',
-        'job nahi', 'promotion nahi', 'marriage delay', 'santan nahi'
+        'job nahi', 'promotion nahi', 'marriage delay', 'santan nahi',
+        'tension', 'worried', 'concerned', 'anxiety', 'stress', 'chinta', 'fikar'
     ]
     return any(marker in q for marker in problem_markers)
 
@@ -947,7 +948,7 @@ class EnhancedAstroBotAPI:
             {age_logic_context}
 
             Provide the response now, following ALL the above rules.
-            {('Include these remedies in your main response as plain text: ' + remedies_section) if remedies_section else ''}
+            {('MANDATORY: You MUST include these EXACT remedies in your response as plain text (copy them exactly): ' + remedies_section) if remedies_section else ''}
                         """
             
             try:
