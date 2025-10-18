@@ -158,74 +158,74 @@ def generate_remedies(user_query, chart_data, compact=False):
 
     remedy_map = {
         "1. Career, Job aur Business ke liye Remedies 1": {
-            "free": "Har subah, **copper ke bartan se Surya Dev ko jal arpit karein** (Surya Arghya). Isse aapka aatmavishwas aur netritva ki kshamta badhegi.",
+            "free": "Har subah, copper ke bartan se Surya Dev ko jal arpit karein (Surya Arghya). Isse aapka aatmavishwas aur netritva ki kshamta badhegi.",
             "buyable": [
-                "Pyrite Bracelet: Aapke **career aur dhan ki growth** mein madad karta hai.",
-                "Tiger Eye Bracelet: Aapko **himmat (courage) aur focus** deta hai.",
-                "Small Kuber Yantra or Gomti Chakra: Apne desk par rakhein **sampannta (prosperity) aur naye avsaron** ke liye."
+                "Pyrite Bracelet: Aapke career aur dhan ki growth mein madad karta hai.",
+                "Tiger Eye Bracelet: Aapko himmat aur focus deta hai.",
+                "Small Kuber Yantra or Gomti Chakra: Apne desk par rakhein sampannta aur naye avsaron ke liye."
             ],
             "category_name": "Career aur Business"
         },
         "2. Love aur Relationship Remedies 2": {
-            "free": "**Shukrawar (Friday) ki shaam ko peepal ke ped ko doodh/jal arpit karein** (peepal ke ped ko jal dene se rishte mazboot hote hain).",
+            "free": "Shukrawar (Friday) ki shaam ko peepal ke ped ko doodh/jal arpit karein (peepal ke ped ko jal dene se rishte mazboot hote hain).",
             "buyable": [
-                "Rose Quartz Bracelet: **Pyaar aur achhe rishton** ko aakarshit karta hai.",
-                "Gauri Shankar Rudraksha: Jeevan saathi ke saath **bandhan mazboot** karta hai.",
-                "Shukra Yantra: Ise ghar mein rakhne se **partnership ki energy** achhi rehti hai."
+                "Rose Quartz Bracelet: Pyaar aur achhe rishton ko aakarshit karta hai.",
+                "Gauri Shankar Rudraksha: Jeevan saathi ke saath bandhan mazboot karta hai.",
+                "Shukra Yantra: Ise ghar mein rakhne se partnership ki energy achhi rehti hai."
             ],
             "category_name": "Love aur Relationship"
         },
         "3. Marriage aur Compatibility Remedies 3": {
-            "free": "Guruwar (Thursday) ka **vrat rakhein ya gau mata ko hara chara khilayein** (gair-khati ghass).",
+            "free": "Guruwar (Thursday) ka vrat rakhein ya gau mata ko hara chara khilayein (gair-khati ghass).",
             "buyable": [
-                "Rose Quartz Bracelet: **Shadi aur achhe rishton** mein madad karta hai.",
-                "Gauri Shankar Rudraksha: Vivah mein deri **door karta hai aur dampatya sukh** deta hai.",
-                "Shukra Yantra: **Prem aur sahayog** badhane ke liye use karein."
+                "Rose Quartz Bracelet: Shadi aur achhe rishton mein madad karta hai.",
+                "Gauri Shankar Rudraksha: Vivah mein deri door karta hai aur dampatya sukh deta hai.",
+                "Shukra Yantra: Prem aur sahayog badhane ke liye use karein."
             ],
             "category_name": "Marriage aur Compatibility"
         },
         "4. Santan Prapti aur Family Growth Remedies 4": {
-            "free": "**Bhagwan Krishna ki pooja karein aur Shukrawar ko unhe doodh ya makhan ka bhog lagayein.**",
+            "free": "Bhagwan Krishna ki pooja karein aur Shukrawar ko unhe doodh ya makhan ka bhog lagayein.",
             "buyable": [
-                "Putra Prapti Yantra (ya Haridra Ganesh Yantra): **Santan sukh** ke liye ashirwad deta hai.",
-                "Moti (Pearl) Stone: **Mann ki shanti aur matritva shakti** ko badhata hai.",
-                "Gauri Shankar Rudraksha: **Parivar ki ekta aur unnati** ke liye accha hai."
+                "Putra Prapti Yantra (ya Haridra Ganesh Yantra): Santan sukh ke liye ashirwad deta hai.",
+                "Moti (Pearl) Stone: Mann ki shanti aur matritva shakti ko badhata hai.",
+                "Gauri Shankar Rudraksha: Parivar ki ekta aur unnati ke liye accha hai."
             ],
             "category_name": "Santan Prapti aur Family Growth"
         },
         "5. Property, Home aur Land Stability Remedies 5": {
-            "free": "Har shaam **ghar ke mukhya dwar (main entrance) par ek diya (deepak) jalayein.**",
+            "free": "Har shaam ghar ke mukhya dwar (main entrance) par ek diya (deepak) jalayein.",
             "buyable": [
-                "Turquoise Stone: **Ghar ki suraksha aur sthirta** ke liye.",
-                "Vastu Yantra: Ghar ke **North-East kone** mein rakhein Vastu dosh dur karne ke liye.",
-                "Red Jasper Bracelet: **Zameen se jude vivaad** aur sthirta ke liye."
+                "Turquoise Stone: Ghar ki suraksha aur sthirta ke liye.",
+                "Vastu Yantra: Ghar ke North-East kone mein rakhein Vastu dosh dur karne ke liye.",
+                "Red Jasper Bracelet: Zameen se jude vivaad aur sthirta ke liye."
             ],
             "category_name": "Property aur Home Stability"
         },
         "6. Litigation aur Court Case Remedies 6": {
-            "free": "**Mangalwar aur Shanivar ko Hanuman Chalisa ka path karein.**",
+            "free": "Mangalwar aur Shanivar ko Hanuman Chalisa ka path karein.",
             "buyable": [
-                "Ganesha Yantra: **Rukavatein (obstacles) hatane aur vivaad mein safalta** ke liye.",
-                "Tiger Eye Bracelet: **Himmat aur focus** deta hai court case ke dauran.",
-                "Blue Sapphire (Neelam): **Nyay aur jeet** ke liye. (Astrologer ki salah zaroori hai pehenne se pehle)."
+                "Ganesha Yantra: Rukavatein (obstacles) hatane aur vivaad mein safalta ke liye.",
+                "Tiger Eye Bracelet: Himmat aur focus deta hai court case ke dauran.",
+                "Blue Sapphire (Neelam): Nyay aur jeet ke liye. (Astrologer ki salah zaroori hai pehenne se pehle)."
             ],
             "category_name": "Litigation aur Court Case"
         },
         "7. Finance, Money aur Prosperity Remedies 7": {
-            "free": "**Har roz, khaaskar Shukrawar ko, Kanakadhara Stotram ka path karein.**",
+            "free": "Har roz, khaaskar Shukrawar ko, Kanakadhara Stotram ka path karein.",
             "buyable": [
-                "Green Aventurine Bracelet: **Dhan aur naye avsaron** ko aakarshit karta hai (Stone of Opportunity).",
-                "Shri Yantra: **Cash box ya North-East kone** mein rakhein dhan ki lagatar flow ke liye.",
-                "Citrine Stone: **Aamdani (abundance) badhane** aur financial blockages hatane ke liye."
+                "Green Aventurine Bracelet: Dhan aur naye avsaron ko aakarshit karta hai (Stone of Opportunity).",
+                "Shri Yantra: Cash box ya North-East kone mein rakhein dhan ki lagatar flow ke liye.",
+                "Citrine Stone: Aamdani (abundance) badhane aur financial blockages hatane ke liye."
             ],
             "category_name": "Finance, Money aur Prosperity"
         },
         "8. Health, Energy aur Peace Remedies 8": {
-            "free": "Har din **'Om Namah Shivaya' mantra ka 108 baar jaap karein** (apne saans par dhyaan dete hue).",
+            "free": "Har din Om Namah Shivaya mantra ka 108 baar jaap karein (apne saans par dhyaan dete hue).",
             "buyable": [
-                "Amethyst Stone: **Stress aur man ki shanti** ke liye.",
-                "Tulsi Mala: **Swasthya (health), suraksha** aur shuddhi (purification) ke liye pehnein.",
-                "Health Yantra: **Recovery aur urja** ke liye apne bed ke paas rakhein."
+                "Amethyst Stone: Stress aur man ki shanti ke liye.",
+                "Tulsi Mala: Swasthya (health), suraksha aur shuddhi (purification) ke liye pehnein.",
+                "Health Yantra: Recovery aur urja ke liye apne bed ke paas rakhein."
             ],
             "category_name": "Health, Energy aur Peace"
         }
@@ -239,11 +239,10 @@ def generate_remedies(user_query, chart_data, compact=False):
     if compact:
         paid_one = selected['buyable'][0] if selected.get('buyable') else ''
         return (
-            f"\n---\n"
-            f"Upay – {selected['category_name']}\n"
-            f"- Free: {selected['free']}\n"
-            f"- Paid: {paid_one} (AstroRemedis se uplabdh)\n"
-            f"- Activation: {activation_process}"
+            f"\n\nUpay {selected['category_name']}\n"
+            f"1. {selected['free']}\n"
+            f"2. {paid_one}\n"
+            f"Activation: {activation_process}"
         )
     else:
         response = (
@@ -280,7 +279,7 @@ class EnhancedAstroBotAPI:
         self.vector_store = None
         if RAG_AVAILABLE:
             self._load_vector_store()
-            self._load_vector_store()
+        else:
             logger.info("RAG system disabled - LangChain dependencies not available")
     
     def _load_vector_store(self):
@@ -548,14 +547,13 @@ class EnhancedAstroBotAPI:
                     sign_id = planet.get('rasi', {}).get('id')
                     if isinstance(sign_id, int):
                         house_num = (sign_id - ascendant_sign + 12) % 12 + 1
-                        if house_num is None:
-                            continue
-                        planet_code = planet_code_map.get(planet_name, (planet_name or '')[:2])
-                if house_num not in planets_in_house:
-                        if house_num not in planets_in_house:
-                            planets_in_house[house_num] = []
-                        if planet_code and planet_code not in planets_in_house[house_num]:
-                            planets_in_house[house_num].append(planet_code)
+                
+                if house_num is not None:
+                    planet_code = planet_code_map.get(planet_name, (planet_name or '')[:2])
+                    if house_num not in planets_in_house:
+                        planets_in_house[house_num] = []
+                    if planet_code and planet_code not in planets_in_house[house_num]:
+                        planets_in_house[house_num].append(planet_code)
         # Final CHART_DATA Structure with comprehensive ProKerala data
         final_chart_data = {
             "name": name,
@@ -954,11 +952,10 @@ class EnhancedAstroBotAPI:
             
             try:
                 response = openai.chat.completions.create(
-                model="gpt-4-turbo",
+                    model="gpt-4-turbo",
                     messages=[{"role": "user", "content": system_prompt}],
                     temperature=0.9,
                     max_tokens=800
-            )
                 )
                 return response.choices[0].message.content
             except Exception as primary_error:
@@ -1401,18 +1398,18 @@ def form_submit():
         # Try to append to Google Sheet (optional - not critical for core functionality)
         if append_form_submission is not None:
             try:
-        append_form_submission(
-            spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
-            worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
-            row_data=[
-                datetime.now().isoformat(),
-                payload['name'],
-                payload['dob'],
-                payload['tob'],
-                payload['place'],
-                payload.get('timezone', 'Asia/Kolkata')
-            ]
-        )
+                append_form_submission(
+                    spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
+                    worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
+                    row_data=[
+                        datetime.now().isoformat(),
+                        payload['name'],
+                        payload['dob'],
+                        payload['tob'],
+                        payload['place'],
+                        payload.get('timezone', 'Asia/Kolkata')
+                    ]
+                )
                 logger.info("Form data successfully saved to Google Sheets")
             except Exception as sheets_error:
                 logger.warning(f"Google Sheets integration failed: {sheets_error}")
