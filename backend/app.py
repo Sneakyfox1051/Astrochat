@@ -133,6 +133,40 @@ DEFAULT_TZ = 'Asia/Kolkata'
 if OPENAI_API_KEY:
     openai.api_key = OPENAI_API_KEY
 
+# Mole & Mark Prediction System based on planetary positions
+def generate_mole_prediction(chart_data):
+    """Generate body mark predictions based on planetary positions"""
+    try:
+        planets = chart_data.get('planets', {})
+        planet_mark_map = {
+            'Sun': {'body_part': 'chest/neck', 'meaning': 'leadership aur netritva'},
+            'Moon': {'body_part': 'face/throat', 'meaning': 'emotion aur sensitivity'},
+            'Mars': {'body_part': 'shoulder/hand', 'meaning': 'bravery aur mehnat'},
+            'Mercury': {'body_part': 'leg/back', 'meaning': 'intelligence aur communication'},
+            'Jupiter': {'body_part': 'abdomen', 'meaning': 'fortune aur wisdom'},
+            'Venus': {'body_part': 'lips/cheek', 'meaning': 'beauty aur love'},
+            'Saturn': {'body_part': 'knee/leg', 'meaning': 'stability aur discipline'},
+            'Rahu': {'body_part': 'ear/neck', 'meaning': 'mystery aur innovation'},
+            'Ketu': {'body_part': 'spine/back', 'meaning': 'spirituality aur detachment'}
+        }
+        
+        # Find strongest planet (most houses occupied)
+        planet_counts = {}
+        for house, planet_list in planets.items():
+            for planet in planet_list:
+                planet_counts[planet] = planet_counts.get(planet, 0) + 1
+        
+        if planet_counts:
+            strongest_planet = max(planet_counts.keys(), key=lambda x: planet_counts[x])
+            mark_info = planet_mark_map.get(strongest_planet, {'body_part': 'body', 'meaning': 'special energy'})
+            
+            return f"Aapke grahon se lagta hai aapke {mark_info['body_part']} par til hai. Ye {strongest_planet} ka prabhav hai jo {mark_info['meaning']} ka pratik hai."
+        
+        return "Aapke grahon se lagta hai aapke body par koi special nishan hai jo aapki unique energy ko represent karta hai."
+    except Exception as e:
+        logger.error(f"Error generating mole prediction: {e}")
+        return "Aapke grahon se lagta hai aapke body par koi special nishan hai."
+
 # Remedies generator (Hinglish) - selects and formats remedies for common problem areas
 def generate_remedies(user_query, chart_data, compact=False):
     """Select and format remedies using indirect Hinglish suggestions for free and paid items.
@@ -160,27 +194,27 @@ def generate_remedies(user_query, chart_data, compact=False):
         "1. Career, Job aur Business ke liye Remedies 1": {
             "free": "Har subah, copper ke bartan se Surya Dev ko jal arpit karein (Surya Arghya). Isse aapka aatmavishwas aur netritva ki kshamta badhegi.",
             "buyable": [
-                "Pyrite Bracelet: Aapke career aur dhan ki growth mein madad karta hai.",
-                "Tiger Eye Bracelet: Aapko himmat aur focus deta hai.",
-                "Small Kuber Yantra or Gomti Chakra: Apne desk par rakhein sampannta aur naye avsaron ke liye."
+                "AstroRemedis ka Pyrite Bracelet: Aapke career aur dhan ki growth mein madad karta hai.",
+                "AstroRemedis ka Tiger Eye Bracelet: Aapko himmat aur focus deta hai.",
+                "AstroRemedis ka Kuber Yantra: Apne desk par rakhein sampannta aur naye avsaron ke liye."
             ],
             "category_name": "Career aur Business"
         },
         "2. Love aur Relationship Remedies 2": {
             "free": "Shukrawar (Friday) ki shaam ko peepal ke ped ko doodh/jal arpit karein (peepal ke ped ko jal dene se rishte mazboot hote hain).",
             "buyable": [
-                "Rose Quartz Bracelet: Pyaar aur achhe rishton ko aakarshit karta hai.",
-                "Gauri Shankar Rudraksha: Jeevan saathi ke saath bandhan mazboot karta hai.",
-                "Shukra Yantra: Ise ghar mein rakhne se partnership ki energy achhi rehti hai."
+                "AstroRemedis ka Rose Quartz Bracelet: Pyaar aur achhe rishton ko aakarshit karta hai.",
+                "AstroRemedis ka Gauri Shankar Rudraksha: Jeevan saathi ke saath bandhan mazboot karta hai.",
+                "AstroRemedis ka Shukra Yantra: Ise ghar mein rakhne se partnership ki energy achhi rehti hai."
             ],
             "category_name": "Love aur Relationship"
         },
         "3. Marriage aur Compatibility Remedies 3": {
             "free": "Guruwar (Thursday) ka vrat rakhein ya gau mata ko hara chara khilayein (gair-khati ghass).",
             "buyable": [
-                "Rose Quartz Bracelet: Shadi aur achhe rishton mein madad karta hai.",
-                "Gauri Shankar Rudraksha: Vivah mein deri door karta hai aur dampatya sukh deta hai.",
-                "Shukra Yantra: Prem aur sahayog badhane ke liye use karein."
+                "AstroRemedis ka Rose Quartz Bracelet: Shadi aur achhe rishton mein madad karta hai.",
+                "AstroRemedis ka Gauri Shankar Rudraksha: Vivah mein deri door karta hai aur dampatya sukh deta hai.",
+                "AstroRemedis ka Shukra Yantra: Prem aur sahayog badhane ke liye use karein."
             ],
             "category_name": "Marriage aur Compatibility"
         },
@@ -983,26 +1017,49 @@ class EnhancedAstroBotAPI:
 
             # Build remedies section only if the question implies a problem/pain
             remedies_section = generate_remedies(question, chart_data, compact=True) if should_append_remedies(question) else ""
+            
+            # Generate mole prediction for body marks
+            mole_prediction = generate_mole_prediction(chart_data) if chart_data else ""
 
             safe_earliest_marriage_year = earliest_marriage_year or (birth_year + min_ages["relationship_advice"])
             logger.info(f"[AI] response_style={response_style}, earliest_realistic_year={earliest_realistic_year}, earliest_marriage_year={safe_earliest_marriage_year}")
 
             system_prompt = f"""
-            You are AstroBot, an experienced, calm, wise, and compassionate KP Jyotishacharya (Digital Pandit Ji). 
-            Your persona MUST match this EXACT structure and tone (using Hinglish and appropriate greetings):
-            1. Start with a spiritual Hindi/Hinglish acknowledgment (e.g., "Aapka sawaal uttam hai, {chart_data.get('name', 'User')} ji...").
-            2. State the prediction in a clear, narrative style using Hinglish with SPECIFIC future timeframes (2025 onwards).
-            3. If the prediction relates to children, use the '🔮 Santan Yog Prediction' heading and explain the timing.
-            4. Conclude with a spiritual blessing ("Shri Sitaram...") and the follow-up question.
-
-            **CRITICAL & NON-NEGOTIABLE RULES (Tone & Style):**
-            1. **Greeting/Acknowledge:** Use a personalized and spiritual opening.
-            2. **Length/Focus:** Be **EXTREMELY SUCCINCT** and **LASER-FOCUSED**. Limit the core prediction/explanation to **3-5 sentences MAXIMUM**.
-            3. **Technical Astrological Details:** When the user specifically asks about technical details (Rashi, Dasha, planetary positions, houses, etc.), you MAY include these terms in your response. For general predictions, use spiritual language, but for technical queries, provide the requested astrological information with explanations.
-            4. **Formatting:** When predicting children, use the heading '🔮 Santan Yog Prediction' exactly as shown.
-            5. **SINGLE FOLLOW-UP ONLY:** {follow_up_instruction}
-            6. **NO GENERIC QUESTIONS:** Avoid asking generic questions like "What is your next question?" or "On which topic do you want to focus next?" Use the specific follow-up question provided.
-            7. **REMEDY FORMAT:** If remedies are provided, include them in the SAME response as plain text (no markdown formatting, no **Upay:** headers, no special formatting).
+            You are AstroRemedis ka AI Astrologer - a divine, scientific, and interactive personality that combines Vedic wisdom with modern technology.
+            
+            **CORE PERSONALITY & BEHAVIOR:**
+            1. **Greeting:** ALWAYS start with "Namaskar, main aapka AstroRemedis ka AI Astrologer hoon."
+            2. **Language:** Use Hindi-English mix (70% Hindi, 30% English) naturally
+            3. **Tone:** Spiritual pandit + friendly advisor - warm, confident, and divine
+            4. **Length:** Keep responses concise and impactful (2 lines maximum)
+            5. **Blessing:** ALWAYS end with "Bhagwan aap par apna aashirwad sadaiv banaaye rakhen."
+            6. **Human Feel:** Use spiritual words naturally - "ashirwad", "prasannata", "urja", "grah shanti", "bhagya"
+            
+            **VEDIC ASTROLOGY SYSTEM:**
+            7. **Technical Details:** When user provides birth details, first state: "Aapki Lagna [Sign] hai, Chandra Rashi [Sign] hai, aur iss samay [Planet] Mahadasha chal rahi hai."
+            8. **Dasha Analysis:** Based on current Dasha, provide short observation: "Is samay [area] me nayi opportunities aa rahi hain par decision carefully lena hoga."
+            9. **Human Guess:** Add empathetic observation: "Lagta hai is waqt aap apne [topic] ko lekar thoda confuse hain."
+            10. **Follow-up:** Always end with "Kya main aur detail me bataun?"
+            
+            **MOLE & MARK PREDICTION SYSTEM:**
+            11. **Body Mark Reading:** Based on planetary positions, confidently predict body marks:
+                - Surya → chest/neck (leadership)
+                - Chandra → face/throat (emotion) 
+                - Mangal → shoulder/hand (bravery)
+                - Budh → leg/back (intelligence)
+                - Guru → abdomen (fortune)
+                - Shukra → lips/cheek (beauty)
+                - Shani → knee/leg (stability)
+                - Rahu → ear/neck (mystery)
+                - Ketu → spine/back (spirituality)
+            12. **Confident Prediction:** Say "Aapke grahon se lagta hai aapke [body part] par til hai. Ye [Planet] ka prabhav hai jo [meaning] ka pratik hai."
+            13. **Response to Confirmation:** "Ye til aapke grah ki urja ka nishan hai."
+            14. **Response to Denial:** "Ho sakta hai til chhupa ho, lekin grah ka prabhav aapke charitra me dikh raha hai."
+            
+            **ASTROREMEDIS BRAND INTEGRATION:**
+            15. **Product Suggestions:** Naturally suggest AstroRemedis products: "Shani prashant karne ke liye aap AstroRemedis ka Maruti Yantra Kachhua apne ghar me rakhen."
+            16. **Trust Statement:** "Main aapko sirf trusted AstroRemedis remedies suggest karta hoon jo siddh aur certified hain."
+            17. **Natural Integration:** Include product names naturally, not like advertisements
 
             **CRITICAL ACCURACY & LOGIC RULES (Prediction Accuracy and Realism):**
             6. **Data-Driven:** Base your answer strictly on the provided CHART DATA and KP ASTROLOGY KNOWLEDGE.
@@ -1019,6 +1076,8 @@ class EnhancedAstroBotAPI:
 
             **INTERNAL REFERENCE DATA (Analyze and Apply Rules):**
             {chart_context}
+            
+            **MOLE PREDICTION DATA:** {mole_prediction}
             
             **KP ASTROLOGY KNOWLEDGE (Internal Reference Only):**
             {context_from_docs}
