@@ -54,20 +54,3 @@
   }
 }
 
-/* Responsive sizing */
-@media (max-width: 480px) {
-  .character-container { bottom: 96px; }
-  .character-image { width: 360px; }
-}
-
-@media (min-width: 1024px) {
-  .character-image { width: 560px; }
-}
-
-@media (max-width: 480px) {
-  .character-image {
-    width: 180px;
-  }
-}
-
-

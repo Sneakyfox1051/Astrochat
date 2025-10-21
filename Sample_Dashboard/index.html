@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AstroRemedis | Cosmic Guidance for Terrestrial Harmony</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for a cosmic theme */
+        :root {
+            --primary-color: #6366f1; /* Indigo-500 */
+            --accent-color: #fcd34d; /* Amber-300 (Gold) */
+            --dark-background: #0f172a; /* Slate-900 */
+        }
+        
+        /* Character.css styles copied from React component */
+        .character-container {
+          position: absolute;
+          bottom: 70px; /* raised slightly to clear larger size above nav */
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 2;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+
+        .character-container::before {
+          content: '';
+          position: absolute;
+          width: calc(100% + 65px);
+          height: calc(100% + 65px);
+          border-radius: 50%;
+          background: radial-gradient(circle,
+            rgba(255, 200, 0, 0.30) 0%,
+            rgba(255, 160, 0, 0.24) 35%,
+            rgba(255, 120, 0, 0.15) 55%,
+            rgba(255, 180, 0, 0.08) 70%,
+            transparent 85%
+          );
+          filter: blur(18px);
+          animation: aura-pulse 4.5s ease-in-out infinite;
+          z-index: 1;
+        }
+
+        .character-image {
+          width: 620px;
+          height: auto;
+          object-fit: contain;
+          filter: drop-shadow(0 0 14px rgba(228, 107, 0, 0.32));
+          position: relative;
+          z-index: 2;
+          animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-6px); }
+        }
+
+        @keyframes aura-pulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.9;
+          }
+          50% {
+            transform: scale(1.06);
+            opacity: 1;
+          }
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--dark-background);
+            color: #e2e8f0; /* Slate-200 */
+            line-height: 1.6;
+        }
+        .celestial-bg {
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+        }
+        .cta-button {
+            background: linear-gradient(45deg, var(--primary-color), #7c3aed);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+        .cta-button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+        }
+        /* Custom scrollbar styling for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="celestial-bg min-h-screen">
+
+    <!-- Header & Navigation -->
+    <header class="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-sm shadow-xl border-b border-indigo-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <!-- Logo/Brand Name -->
+            <div class="flex items-center space-x-2">
+                <svg class="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <span class="text-2xl font-extrabold text-white tracking-wide">AstroRemedis</span>
+            </div>
+
+            <!-- Desktop Navigation Links (Hidden on mobile) -->
+            <nav class="hidden md:flex space-x-8 text-sm font-medium">
+                <a href="#services" class="text-slate-300 hover:text-indigo-400 transition">Our Services</a>
+                <!-- NEW: Products Link -->
+                <a href="#products" class="text-slate-300 hover:text-indigo-400 transition">Cosmic Products</a>
+                <a href="#about" class="text-slate-300 hover:text-indigo-400 transition">The Science</a>
+                <a href="#testimonials" class="text-slate-300 hover:text-indigo-400 transition">Testimonials</a>
+                <a href="#consultation" class="text-white px-4 py-2 rounded-full cta-button">Book Consultation</a>
+            </nav>
+
+            <!-- Mobile Menu Button (Hamburger) - Non-functional placeholder -->
+            <button class="md:hidden text-slate-300 hover:text-indigo-400 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="relative pt-20 pb-20 md:pt-32 md:pb-40 overflow-hidden">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <!-- Decorative Star/Spiral SVG -->
+                <svg class="absolute top-10 right-0 w-32 h-32 md:w-48 md:h-48 text-indigo-700/50 opacity-20 rotate-12 -z-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4M17 6h4M16.344 14.656l.707.707M6.96 6.96l-.707-.707M17 19l-2-2m0-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                
+                <h1 class="text-5xl md:text-7xl font-extrabold text-white mb-4 leading-tight">
+                    Align Your Destiny.
+                    <span class="block text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-yellow-400 mt-2">Harmonize Your Life.</span>
+                </h1>
+                <p class="text-xl text-slate-400 max-w-3xl mx-auto mb-8">
+                    Personalized, science-backed cosmic remedies to balance planetary influences and unlock your true potential.
+                </p>
+                <div class="space-y-4 sm:space-y-0 sm:space-x-4 flex flex-col sm:flex-row justify-center">
+                    <a href="#consultation" class="cta-button text-white font-semibold px-8 py-3 rounded-full text-lg shadow-xl inline-block">
+                        Start Your Cosmic Reading
+                    </a>
+                    <a href="#services" class="bg-slate-700 text-slate-200 hover:bg-slate-600 font-semibold px-8 py-3 rounded-full text-lg border border-slate-600 transition inline-block">
+                        Explore Remedies
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Services Section (Our Offerings) -->
+        <section id="services" class="py-16 md:py-24 bg-slate-800/50 border-t border-b border-indigo-900/50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-4xl font-bold text-center text-white mb-12">Our Pillars of Cosmic Harmony</h2>
+                
+                <div class="grid md:grid-cols-3 gap-8">
+                    <!-- Service Card 1 -->
+                    <div class="bg-slate-900 p-6 rounded-xl shadow-2xl border border-indigo-800/50 hover:border-indigo-600 transition duration-300">
+                        <svg class="w-10 h-10 text-yellow-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <h3 class="text-xl font-semibold text-indigo-400 mb-2">Planetary Analysis</h3>
+                        <p class="text-slate-400 text-sm">
+                            Deep dive into your birth chart (Janma Kundali) to precisely identify challenging planetary periods and beneficial alignments.
+                        </p>
+                    </div>
+
+                    <!-- Service Card 2 -->
+                    <div class="bg-slate-900 p-6 rounded-xl shadow-2xl border border-indigo-800/50 hover:border-indigo-600 transition duration-300">
+                        <svg class="w-10 h-10 text-yellow-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <h3 class="text-xl font-semibold text-indigo-400 mb-2">Remedial Action Plans</h3>
+                        <p class="text-slate-400 text-sm">
+                            Personalized recommendations including mantras, rituals, lifestyle adjustments, and charitable acts specific to your astrological needs.
+                        </p>
+                    </div>
+
+                    <!-- Service Card 3 -->
+                    <div class="bg-slate-900 p-6 rounded-xl shadow-2xl border border-indigo-800/50 hover:border-indigo-600 transition duration-300">
+                        <svg class="w-10 h-10 text-yellow-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M17 19l-.707.707M12 20.25h.01M7.343 6.657L6.636 5.95m7.394 9.394l.707.707M17 17l.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        <h3 class="text-xl font-semibold text-indigo-400 mb-2">Gemstone Guidance</h3>
+                        <p class="text-slate-400 text-sm">
+                            Expert selection and advice on wearing suitable gemstones (Ratna) to amplify positive planetary energies and mitigate weaknesses.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Products Section (NEW) -->
+        <section id="products" class="py-16 md:py-24">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-4xl font-bold text-center text-white mb-12">Cosmic Remedies Store</h2>
+                <p class="text-center text-xl text-slate-400 max-w-3xl mx-auto mb-16">
+                    Curated kits and artifacts, energized and personalized according to your unique chart, designed to bring specific planetary energies into alignment.
+                </p>
+                
+                <div class="grid md:grid-cols-3 gap-8">
+                    
+                    <!-- Product Card 1: Jupiter Strengthening Kit -->
+                    <div class="bg-slate-900 p-6 rounded-xl shadow-2xl border border-yellow-800/50 hover:border-yellow-600 transition duration-300 flex flex-col items-center text-center">
+                        <!-- Placeholder Image/Icon for Product -->
+                        <div class="w-24 h-24 bg-yellow-900/30 rounded-full flex items-center justify-center mb-4 border-2 border-yellow-500/50">
+                            <svg class="w-12 h-12 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.5l3.24 7.08-6.48 0L12 6.5zM12 17.5l3.24-7.08-6.48 0L12 17.5z"></path></svg>
+                        </div>
+                        <h3 class="text-2xl font-semibold text-yellow-400 mb-1">Jupiter Prosperity Kit</h3>
+                        <p class="text-sm font-medium text-slate-400 mb-4">Enhances luck, wealth, and wisdom.</p>
+                        <p class="text-3xl font-bold text-white mb-4">$149.00</p>
+                        <p class="text-slate-400 text-sm mb-6 flex-grow">
+                            Includes a high-grade citrine crystal, a personalized Mantra scroll, and a purified turmeric mala for Jupitarian focus.
+                        </p>
+                        <button class="w-full bg-yellow-600 hover:bg-yellow-500 text-slate-900 font-bold py-3 rounded-lg transition duration-300">
+                            View Details
+                        </button>
+                    </div>
+
+                    <!-- Product Card 2: Rahu Mitigation Report -->
+                    <div class="bg-slate-900 p-6 rounded-xl shadow-2xl border border-purple-800/50 hover:border-purple-600 transition duration-300 flex flex-col items-center text-center">
+                        <!-- Placeholder Image/Icon for Product -->
+                        <div class="w-24 h-24 bg-purple-900/30 rounded-full flex items-center justify-center mb-4 border-2 border-purple-500/50">
+                            <svg class="w-12 h-12 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.5c0 4.14-3.36 7.5-7.5 7.5-1.5 0-2.9-.46-4.1-1.28L4 20l1.78-4.78C4.46 13.9 4 12.5 4 11c0-4.14 3.36-7.5 7.5-7.5S21 8.36 21 12.5z"></path></svg>
+                        </div>
+                        <h3 class="text-2xl font-semibold text-purple-400 mb-1">Rahu Shadow Report</h3>
+                        <p class="text-sm font-medium text-slate-400 mb-4">Navigates confusion and karmic challenges.</p>
+                        <p class="text-3xl font-bold text-white mb-4">$69.00</p>
+                        <p class="text-slate-400 text-sm mb-6 flex-grow">
+                            A detailed digital report outlining Rahu's influence in your chart and specific, timed rituals to neutralize its malefic effects.
+                        </p>
+                        <button class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition duration-300">
+                            Download Now
+                        </button>
+                    </div>
+
+                    <!-- Product Card 3: Certified Blue Sapphire -->
+                    <div class="bg-slate-900 p-6 rounded-xl shadow-2xl border border-indigo-800/50 hover:border-indigo-600 transition duration-300 flex flex-col items-center text-center">
+                        <!-- Placeholder Image/Icon for Product -->
+                        <div class="w-24 h-24 bg-indigo-900/30 rounded-full flex items-center justify-center mb-4 border-2 border-indigo-500/50">
+                            <svg class="w-12 h-12 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8.2 12.2l-2.4 2.4-1.2-1.2M15.8 12.2l2.4 2.4 1.2-1.2M12 4l-4 4-2-2M12 4l4 4 2-2M12 20l4-4 2 2M12 20l-4-4-2 2"></path></svg>
+                        </div>
+                        <h3 class="text-2xl font-semibold text-indigo-400 mb-1">Certified Neelam</h3>
+                        <p class="text-sm font-medium text-slate-400 mb-4">Authentic Blue Sapphire for Saturn (Shani).</p>
+                        <p class="text-3xl font-bold text-white mb-4">P.O.R. (Price on Request)</p>
+                        <p class="text-slate-400 text-sm mb-6 flex-grow">
+                            Ethically sourced, government-certified natural gemstone. Includes astrological prescription and setting advice.
+                        </p>
+                        <button class="w-full cta-button text-white font-bold py-3 rounded-lg transition duration-300">
+                            Inquire for Stone
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- Trust & Testimonials Section -->
+        <section id="testimonials" class="py-16 md:py-24 bg-slate-800/50 border-t border-b border-indigo-900/50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-4xl font-bold text-center text-white mb-12">Voices of Transformation</h2>
+                
+                <div class="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                    <!-- Testimonial 1 -->
+                    <div class="bg-slate-900 p-6 rounded-xl shadow-2xl border border-slate-700/50">
+                        <p class="text-slate-300 italic mb-4">
+                            "I felt stuck for years, but the personalized Shani remedy changed my outlook and career trajectory completely. The analysis was incredibly accurate."
+                        </p>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center text-lg font-bold text-white">S.K.</div>
+                            <div>
+                                <p class="font-semibold text-white">Sameer K.</p>
+                                <p class="text-xs text-indigo-300">IT Professional, Mumbai</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Testimonial 2 -->
+                    <div class="bg-slate-900 p-6 rounded-xl shadow-2xl border border-slate-700/50">
+                        <p class="text-slate-300 italic mb-4">
+                            "The process of selecting the correct gemstone was detailed and trustworthy. I received comprehensive certification and guidance on how to wear it correctly."
+                        </p>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-lg font-bold text-white">A.G.</div>
+                            <div>
+                                <p class="font-semibold text-white">Anjali G.</p>
+                                <p class="text-xs text-indigo-300">Entrepreneur, London</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA/Consultation Form Section -->
+        <section id="consultation" class="py-16 md:py-24 bg-indigo-900/20 border-t border-b border-indigo-700">
+            <div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h2 class="text-4xl font-bold text-white mb-4">Ready for Cosmic Clarity?</h2>
+                <p class="text-xl text-indigo-300 mb-8">Book your introductory 1-on-1 session with our certified astrologer.</p>
+
+                <!-- Mock Consultation Form Card -->
+                <div class="bg-slate-900 p-8 rounded-xl shadow-3xl border border-indigo-700">
+                    <form onsubmit="event.preventDefault(); document.getElementById('form-message').classList.remove('hidden'); this.reset();">
+                        <input type="text" placeholder="Full Name" required class="w-full p-3 mb-4 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-indigo-500 focus:border-indigo-500">
+                        <input type="email" placeholder="Email Address" required class="w-full p-3 mb-4 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-indigo-500 focus:border-indigo-500">
+                        <textarea placeholder="Your Specific Concern (Optional)" rows="3" class="w-full p-3 mb-6 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+
+                        <button type="submit" class="cta-button w-full text-white font-bold py-3 rounded-full text-lg">
+                            Request Callback & Pricing
+                        </button>
+                    </form>
+                    <p id="form-message" class="hidden mt-4 text-green-400 font-medium">Thank you! We will reach out within 24 hours to schedule your consultation.</p>
+                </div>
+            </div>
+        </section>
+        
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 py-12 border-t border-indigo-900/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center md:text-left">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <!-- Brand Info -->
+                <div>
+                    <span class="text-xl font-extrabold text-white tracking-wide">AstroRemedis</span>
+                    <p class="text-sm text-slate-400 mt-2">Guiding you to terrestrial harmony through cosmic wisdom.</p>
+                </div>
+
+                <!-- Quick Links -->
+                <div>
+                    <h4 class="text-lg font-semibold text-indigo-400 mb-3">Links</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#services" class="text-slate-400 hover:text-indigo-300 transition">Services</a></li>
+                        <li><a href="#products" class="text-slate-400 hover:text-indigo-300 transition">Products</a></li>
+                        <li><a href="#about" class="text-slate-400 hover:text-indigo-300 transition">About Us</a></li>
+                        <li><a href="#testimonials" class="text-slate-400 hover:text-indigo-300 transition">Client Stories</a></li>
+                    </ul>
+                </div>
+
+                <!-- Contact Info -->
+                <div>
+                    <h4 class="text-lg font-semibold text-indigo-400 mb-3">Get In Touch</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li class="text-slate-400">Email: <a href="mailto:contact@astroremedis.com" class="hover:text-white">contact@astroremedis.com</a></li>
+                        <li class="text-slate-400">Phone: +1 (555) 123-4567</li>
+                        <li class="text-slate-400">Address: Digital Skyway, Earth</li>
+                    </ul>
+                </div>
+
+                <!-- Social Links Placeholder -->
+                <div>
+                    <h4 class="text-lg font-semibold text-indigo-400 mb-3">Follow The Cosmos</h4>
+                    <div class="flex justify-center md:justify-start space-x-4">
+                        <!-- Placeholder Icons -->
+                        <div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-indigo-600 transition cursor-pointer">FB</div>
+                        <div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-indigo-600 transition cursor-pointer">IG</div>
+                        <div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-indigo-600 transition cursor-pointer">TW</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-6 border-t border-slate-700 text-center">
+                <p class="text-xs text-slate-500">&copy; 2025 AstroRemedis. All rights reserved. | Cosmic data is for informational purposes only.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Chatbot Widget Initialization -->
+    <script src="https://gilded-baklava-db352f.netlify.app/embed-sdk.js"></script>
+    <script>
+        // Initializes the AstroRemedis Chatbot widget
+        window.AstroRemedisChat.init({
+            iframeUrl: 'https://gilded-baklava-db352f.netlify.app'
+            // Fixed sizing: Mobile(350x500), Tablet(400x600), Desktop(450x700)
+            // Position is always 'right' - no configuration needed
+            // Icon is the same SVG icon used in the main app
+        });
+    </script>
+
+</body>
+</html>

@@ -491,6 +491,17 @@ class EnhancedAstroBotAPI:
             logger.error(f"Error fetching Kundli: {e}")
             api_data['kundli'] = {}
             
+        # Fetch Dasha Periods (Mahadasha, Antardasha, Pratyantardasha)
+        try:
+            dasha_url = f"{base_url}/dasha"
+            dasha_response = requests.get(dasha_url, headers=headers, params=common_params)
+            dasha_response.raise_for_status()
+            api_data['dasha_periods'] = dasha_response.json().get('data', {})
+            logger.info("✅ Dasha Periods fetched successfully")
+        except Exception as e:
+            logger.error(f"Error fetching Dasha Periods: {e}")
+            api_data['dasha_periods'] = {}
+            
         # Use Kundli data for chart (JSON fallback)
         try:
             # The kundli data already contains chart information
@@ -585,7 +596,7 @@ class EnhancedAstroBotAPI:
             
             # Legacy fields (best-effort) derived from Kundli Advanced if available
             "mangal_dosha": api_data.get('kundli', {}).get('mangal_dosha', {}),
-            "dasha_periods": api_data.get('kundli', {}).get('dasha_periods', {}),
+            "dasha_periods": api_data.get('dasha_periods', {}),  # Now from dedicated dasha API call
             "sade_sati": api_data.get('kundli', {}).get('sade_sati', {}),
             "yoga": api_data.get('kundli', {}).get('yoga_details', [])
         }
@@ -768,10 +779,10 @@ class EnhancedAstroBotAPI:
             
             # Define minimum realistic ages for prediction categories
             min_ages = {
-                "relationship_advice": 25, 
+                "relationship_advice": 21, 
                 "career_guidance": 20, 
                 "health_guidance": 15, 
-                "child_guidance": 26, 
+                "child_guidance": 22, 
                 "general_astrology": 15 
             }
             
@@ -808,12 +819,17 @@ class EnhancedAstroBotAPI:
             
             # Age/Logic context for the AI
             age_logic_context = f"""
-            **INTERNAL AGE/LOGIC CONTEXT:**
+            **INTERNAL AGE/LOGIC CONTEXT (CRITICAL - NON-NEGOTIABLE):**
             User was born in {birth_year}. Current Age: {current_age}. 
             **CURRENT YEAR: 2025** - All predictions must be for 2025 onwards.
             Question Type: {response_style}.
             Minimum realistic age for this event is {minimum_age_threshold} years. 
             Prediction year MUST be >= {earliest_realistic_year} AND >= 2025.
+            
+            **CRITICAL MARRIAGE AGE CHECK:** For marriage predictions, the person must be at least 21 years old (legal age).
+            For birth year {birth_year}, the earliest possible marriage year is {earliest_marriage_year}.
+            NEVER predict marriage before {earliest_marriage_year} regardless of Dasha data.
+            
             If the Dasha data shows a favorable time before {earliest_realistic_year} or before 2025, IGNORE it and find the next favorable timing after {earliest_realistic_year} and 2025.
             {childbirth_logic_context}
             """
@@ -982,7 +998,7 @@ class EnhancedAstroBotAPI:
             **CRITICAL & NON-NEGOTIABLE RULES (Tone & Style):**
             1. **Greeting/Acknowledge:** Use a personalized and spiritual opening.
             2. **Length/Focus:** Be **EXTREMELY SUCCINCT** and **LASER-FOCUSED**. Limit the core prediction/explanation to **3-5 sentences MAXIMUM**.
-            3. **Graha Explanation: ⛔ STRICTLY FORBIDDEN (ABSOLUTE ZERO TOLERANCE) ⛔:** **NEVER** mention any planet (Graha), house, sign, dasha, sub-lord, yog, sthiti, ya koi bhi astrological terminology (jyotish shabda) in the final response. Use this information only internally to form the prediction.
+            3. **Technical Astrological Details:** When the user specifically asks about technical details (Rashi, Dasha, planetary positions, houses, etc.), you MAY include these terms in your response. For general predictions, use spiritual language, but for technical queries, provide the requested astrological information with explanations.
             4. **Formatting:** When predicting children, use the heading '🔮 Santan Yog Prediction' exactly as shown.
             5. **SINGLE FOLLOW-UP ONLY:** {follow_up_instruction}
             6. **NO GENERIC QUESTIONS:** Avoid asking generic questions like "What is your next question?" or "On which topic do you want to focus next?" Use the specific follow-up question provided.
@@ -992,10 +1008,12 @@ class EnhancedAstroBotAPI:
             6. **Data-Driven:** Base your answer strictly on the provided CHART DATA and KP ASTROLOGY KNOWLEDGE.
             7. **CURRENT YEAR AWARENESS:** We are currently in 2025. ALL predictions must be for FUTURE years (2025 onwards). NEVER mention past years like 2023-2025.
             8. **AGE/LOGIC OVERRIDE (NON-NEGOTIABLE):** For any prediction, the **Prediction Year MUST be GREATER THAN or EQUAL TO** the **Earliest Realistic Year** ({earliest_realistic_year}).
-            9. **CHRONOLOGY CHECK (CHILDREN ONLY):** If the question is about **Children/Santan**, you **MUST** ensure the prediction year is **AT LEAST 1 YEAR GREATER** than the earliest realistic marriage year ({safe_earliest_marriage_year}).
-            10. **Dasha Priority (Timing Source):** The timing for prediction MUST be sourced from the Dasha periods, ensuring all chronological and logical rules are satisfied.
-            11. **Time Reference:** ALWAYS use specific FUTURE years/timeframes (e.g., 'mid-2026', '2027-2028', 'late 2025') derived from the Dasha data, ensuring they are **logically sound and future-oriented**.
-            12. **REMEDY INSTRUCTION (NON-NEGOTIABLE):** If remedies are provided, include them in your main response as plain text (no markdown, no special formatting) before the spiritual blessing and follow-up question.
+            9. **MARRIAGE AGE VALIDATION (CRITICAL):** For marriage predictions, the person must be at least 21 years old (legal age). For birth year {birth_year}, the earliest possible marriage year is {earliest_marriage_year}. NEVER predict marriage before this year regardless of Dasha data.
+            10. **CHRONOLOGY CHECK (CHILDREN ONLY):** If the question is about **Children/Santan**, you **MUST** ensure the prediction year is **AT LEAST 1 YEAR GREATER** than the earliest realistic marriage year ({safe_earliest_marriage_year}).
+            11. **Dasha Priority (Timing Source):** The timing for prediction MUST be sourced from the Dasha periods, ensuring all chronological and logical rules are satisfied.
+            12. **Time Reference:** ALWAYS use specific FUTURE years/timeframes (e.g., 'mid-2026', '2027-2028', 'late 2025') derived from the Dasha data, ensuring they are **logically sound and future-oriented**.
+            13. **Technical Query Handling:** When users ask for technical details (Rashi, Dasha, planetary positions, houses, etc.), provide the specific information they requested along with clear explanations. Include terms like "Your Rashi is...", "Current Dasha period is...", "Planet X is in house Y...", etc.
+            14. **REMEDY INSTRUCTION (NON-NEGOTIABLE):** If remedies are provided, include them in your main response as plain text (no markdown, no special formatting) before the spiritual blessing and follow-up question.
 
             **User's Question:** "{question}"
 
