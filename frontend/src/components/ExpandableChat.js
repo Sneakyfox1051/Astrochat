@@ -395,6 +395,26 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
     }
   };
 
+  // Generate horary-specific responses for follow-up questions
+  const generateHoraryResponse = async (question, userProfile) => {
+    try {
+      // Create a horary-specific context for the AI
+      const horaryContext = {
+        mode: 'horary',
+        name: userProfile.name,
+        question: question,
+        analysis_type: 'KP Horary Analysis'
+      };
+
+      // Send to backend with horary context
+      const response = await astroBotAPI.sendChatMessage(question, horaryContext);
+      return response.response;
+    } catch (error) {
+      console.error('Error generating horary response:', error);
+      return "Horary analysis mein koi problem aayi hai. Kripya question dobara puchh sakte hain.";
+    }
+  };
+
   const handleSendMessage = async () => {
     if (inputText.trim()) {
       const newMessage = {
@@ -542,10 +562,16 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             botText = "Kripya 'yes' type karein ya 'change <field>: <value>' batayein (e.g., change dob: 1990-05-15).";
           }
         } else if (currentStep === 'chart_generated' || currentStep === 'chatting') {
-          // Regular chat with chart context; prefer Kundli data (has name and rich context)
-          const chartContext = kundliData || chartData || null;
-          const response = await astroBotAPI.sendChatMessage(currentInput, chartContext);
-          botText = response.response;
+          // Check if we're in horary mode
+          if (userProfile.mode === 'horary') {
+            // For horary mode, provide complete answers based on horary analysis
+            botText = await generateHoraryResponse(currentInput, userProfile);
+          } else {
+            // Regular chat with chart context; prefer Kundli data (has name and rich context)
+            const chartContext = kundliData || chartData || null;
+            const response = await astroBotAPI.sendChatMessage(currentInput, chartContext);
+            botText = response.response;
+          }
           setCurrentStep('chatting');
         } else if (currentStep === 'generating') {
           botText = "Chart generate ho raha hai, kripya wait karein...";

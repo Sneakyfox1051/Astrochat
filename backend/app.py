@@ -289,6 +289,96 @@ def generate_chamatkari_tips(chart_data):
         logger.error(f"Error generating chamatkari tips: {e}")
         return []
 
+# Generate comprehensive horary responses for follow-up questions
+def generate_horary_response(question, user_name):
+    """Generate comprehensive horary responses for follow-up questions"""
+    try:
+        question_lower = question.lower()
+        
+        # Career-related questions
+        if any(word in question_lower for word in ['career', 'job', 'naukri', 'business', 'rozi', 'work', 'profession']):
+            return f"""Namaskar {user_name} ji, KP Horary analysis ke hisab se aapka career ka future bahut bright hai.
+
+**Career Prediction:**
+- Aapka kaam 3-6 mahine me progress dikhayega
+- Naye opportunities aa rahi hain, especially technology field mein
+- Job change ka time achha hai, lekin decision carefully lena hoga
+
+**Remedy:**
+- Shanivar ko tel daan karen, Shani prasann rahenge
+- AstroRemedis ka Tiger Eye Bracelet pehenen for career growth
+- Har roz Hanuman Chalisa ka path karein
+
+Label: KP Horary Analysis"""
+
+        # Marriage-related questions
+        elif any(word in question_lower for word in ['marriage', 'shadi', 'vivah', 'wife', 'husband', 'life partner']):
+            return f"""Namaskar {user_name} ji, KP Horary analysis ke hisab se aapki marriage ki timing achhi hai.
+
+**Marriage Prediction:**
+- Aapka marriage 6-12 mahine me ho sakta hai
+- Life partner achhi family se milega
+- Compatibility bahut achhi hogi
+
+**Remedy:**
+- Shanivar ko tel daan karen, Shani prasann rahenge
+- AstroRemedis ka Rose Quartz Bracelet pehenen for love
+- Guruwar ko gau mata ko hara chara khilayein
+
+Label: KP Horary Analysis"""
+
+        # Health-related questions
+        elif any(word in question_lower for word in ['health', 'swasthya', 'bimari', 'illness', 'disease']):
+            return f"""Namaskar {user_name} ji, KP Horary analysis ke hisab se aapka health ka future achha hai.
+
+**Health Prediction:**
+- Current health issues 1-2 mahine me thik ho jayenge
+- Energy level badhega
+- Stress kam hoga
+
+**Remedy:**
+- Shanivar ko tel daan karen, Shani prasann rahenge
+- AstroRemedis ka Amethyst Stone pehenen for health
+- Har roz Om Namah Shivaya mantra ka 108 baar jaap karein
+
+Label: KP Horary Analysis"""
+
+        # Finance-related questions
+        elif any(word in question_lower for word in ['money', 'finance', 'wealth', 'prosperity', 'paise', 'dhan']):
+            return f"""Namaskar {user_name} ji, KP Horary analysis ke hisab se aapka financial future bright hai.
+
+**Finance Prediction:**
+- Aapka income 3-6 mahine me badhega
+- Investment ka time achha hai
+- Property purchase ka yog hai
+
+**Remedy:**
+- Shanivar ko tel daan karen, Shani prasann rahenge
+- AstroRemedis ka Green Aventurine Bracelet pehenen for wealth
+- Har roz Kanakadhara Stotram ka path karein
+
+Label: KP Horary Analysis"""
+
+        # General questions
+        else:
+            return f"""Namaskar {user_name} ji, KP Horary analysis ke hisab se aapka future bahut bright hai.
+
+**General Prediction:**
+- Aapka kaam 3-6 mahine me progress dikhayega
+- Positive changes aa rahe hain
+- Success ke yog bante hain
+
+**Remedy:**
+- Shanivar ko tel daan karen, Shani prasann rahenge
+- AstroRemedis ka Citrine Stone pehenen for success
+- Har roz positive thinking karein
+
+Label: KP Horary Analysis"""
+
+    except Exception as e:
+        logger.error(f"Error generating horary response: {e}")
+        return f"Namaskar {user_name} ji, KP Horary analysis mein koi problem aayi hai. Kripya question dobara puchh sakte hain. Label: KP Horary Analysis"
+
 # KP Horary Analysis for users without birth details
 def generate_kp_horary_analysis(horary_number):
     """Generate KP Horary analysis based on the provided number (1-249)"""
@@ -1293,6 +1383,13 @@ class EnhancedAstroBotAPI:
                 - 201-249: "Result positive rahega, bas thoda samay lagega"
             22. **Horary Remedy:** Always include: "Shani prabhav me hai, Shanivar ko tel daan karna shubh rahega."
             23. **Label:** Always end horary responses with "Label: KP Horary Analysis"
+            24. **Complete Horary Answers:** When in horary mode, provide COMPLETE answers to all questions:
+                - Career questions: Give specific timing and remedies based on horary analysis
+                - Marriage questions: Provide timing predictions and remedies
+                - Health questions: Give health predictions and remedies
+                - Finance questions: Provide wealth predictions and remedies
+                - NEVER ask for birth details or mention Kundli analysis in horary mode
+                - Always provide direct predictions and remedies based on cosmic timing
             
             **ASTROREMEDIS BRAND INTEGRATION:**
             15. **Product Suggestions:** Naturally suggest AstroRemedis products: "Shani prashant karne ke liye aap AstroRemedis ka Maruti Yantra Kachhua apne ghar me rakhen."
@@ -1314,6 +1411,8 @@ class EnhancedAstroBotAPI:
 
             **INTERNAL REFERENCE DATA (Analyze and Apply Rules):**
             {chart_context}
+            
+            **HORARY MODE DETECTION:** If chart_data contains mode: 'horary', you are in KP Horary mode. Provide complete answers without asking for birth details.
             
             **MOLE PREDICTION DATA:** {mole_prediction}
             
@@ -1455,8 +1554,14 @@ def chat():
                 "error": "Message is required"
             }), 400
         
-        # Generate AI response using RAG if chart data available
-        ai_response = astro_api.generate_ai_response(user_message, chart_data)
+        # Check if we're in horary mode
+        if chart_data and chart_data.get('mode') == 'horary':
+            # Use horary-specific response generator
+            user_name = chart_data.get('name', 'User')
+            ai_response = generate_horary_response(user_message, user_name)
+        else:
+            # Generate AI response using RAG if chart data available
+            ai_response = astro_api.generate_ai_response(user_message, chart_data)
         
         return jsonify({
             "response": ai_response,
