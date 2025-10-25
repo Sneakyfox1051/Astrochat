@@ -299,9 +299,9 @@ def generate_horary_response(question, user_name):
         if any(word in question_lower for word in ['career', 'job', 'naukri', 'business', 'rozi', 'work', 'profession']):
             return f"""Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {user_name} ji, KP Horary analysis ke hisab se aapka career ka future bahut bright hai.
 
-**Career Prediction:** Aapka kaam 3-6 mahine me progress dikhayega, naye opportunities aa rahi hain especially technology field mein. Job change ka time achha hai, lekin decision carefully lena hoga.
+Career Prediction: Aapka kaam 3-6 mahine me progress dikhayega, naye opportunities aa rahi hain especially technology field mein. Job change ka time achha hai, lekin decision carefully lena hoga.
 
-**Remedy:** Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Tiger Eye Bracelet pehenen for career growth. Har roz Hanuman Chalisa ka path karein.
+Remedy: Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Tiger Eye Bracelet pehenen for career growth. Har roz Hanuman Chalisa ka path karein.
 
 Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"""
 
@@ -309,9 +309,9 @@ Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"
         elif any(word in question_lower for word in ['marriage', 'shadi', 'vivah', 'wife', 'husband', 'life partner']):
             return f"""Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {user_name} ji, KP Horary analysis ke hisab se aapki marriage ki timing achhi hai.
 
-**Marriage Prediction:** Aapka marriage 6-12 mahine me ho sakta hai, life partner achhi family se milega. Compatibility bahut achhi hogi.
+Marriage Prediction: Aapka marriage 6-12 mahine me ho sakta hai, life partner achhi family se milega. Compatibility bahut achhi hogi.
 
-**Remedy:** Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Rose Quartz Bracelet pehenen for love. Guruwar ko gau mata ko hara chara khilayein.
+Remedy: Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Rose Quartz Bracelet pehenen for love. Guruwar ko gau mata ko hara chara khilayein.
 
 Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"""
 
@@ -319,9 +319,9 @@ Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"
         elif any(word in question_lower for word in ['health', 'swasthya', 'bimari', 'illness', 'disease']):
             return f"""Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {user_name} ji, KP Horary analysis ke hisab se aapka health ka future achha hai.
 
-**Health Prediction:** Current health issues 1-2 mahine me thik ho jayenge, energy level badhega. Stress kam hoga.
+Health Prediction: Current health issues 1-2 mahine me thik ho jayenge, energy level badhega. Stress kam hoga.
 
-**Remedy:** Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Amethyst Stone pehenen for health. Har roz Om Namah Shivaya mantra ka 108 baar jaap karein.
+Remedy: Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Amethyst Stone pehenen for health. Har roz Om Namah Shivaya mantra ka 108 baar jaap karein.
 
 Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"""
 
@@ -329,9 +329,9 @@ Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"
         elif any(word in question_lower for word in ['money', 'finance', 'wealth', 'prosperity', 'paise', 'dhan']):
             return f"""Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {user_name} ji, KP Horary analysis ke hisab se aapka financial future bright hai.
 
-**Finance Prediction:** Aapka income 3-6 mahine me badhega, investment ka time achha hai. Property purchase ka yog hai.
+Finance Prediction: Aapka income 3-6 mahine me badhega, investment ka time achha hai. Property purchase ka yog hai.
 
-**Remedy:** Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Green Aventurine Bracelet pehenen for wealth. Har roz Kanakadhara Stotram ka path karein.
+Remedy: Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Green Aventurine Bracelet pehenen for wealth. Har roz Kanakadhara Stotram ka path karein.
 
 Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"""
 
@@ -339,9 +339,9 @@ Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"
         else:
             return f"""Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {user_name} ji, KP Horary analysis ke hisab se aapka future bahut bright hai.
 
-**General Prediction:** Aapka kaam 3-6 mahine me progress dikhayega, positive changes aa rahe hain. Success ke yog bante hain.
+General Prediction: Aapka kaam 3-6 mahine me progress dikhayega, positive changes aa rahe hain. Success ke yog bante hain.
 
-**Remedy:** Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Citrine Stone pehenen for success. Har roz positive thinking karein.
+Remedy: Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Citrine Stone pehenen for success. Har roz positive thinking karein.
 
 Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"""
 
@@ -1389,7 +1389,7 @@ class EnhancedAstroBotAPI:
             52. **Dasha Priority:** The timing for prediction MUST be sourced from the Dasha periods
             53. **Time Reference:** ALWAYS use specific FUTURE years/timeframes derived from the Dasha data
             54. **Technical Query Handling:** When users ask for technical details, provide specific information with clear explanations
-            55. **REMEDY INSTRUCTION:** If remedies are provided, include them in your main response as plain text before the spiritual blessing
+            55. **REMEDY INSTRUCTION:** If remedies are provided, include them in your main response as plain text before the spiritual blessing. NEVER use markdown formatting like **bold** or *italic* - use only plain text.
 
             **User's Question:** "{question}"
 
@@ -1409,7 +1409,7 @@ class EnhancedAstroBotAPI:
             
             {age_logic_context}
 
-            **IMPORTANT:** Remember to maintain the spiritual pandit personality, use Hindi-English mix naturally, keep responses concise (2 lines), and always end with the blessing. Provide complete, accurate predictions based on the data provided.
+            **IMPORTANT:** Remember to maintain the spiritual pandit personality, use Hindi-English mix naturally, keep responses concise (2 lines), and always end with the blessing. Provide complete, accurate predictions based on the data provided. NEVER use markdown formatting - use only plain text without any special characters like ** or *.
             {('MANDATORY: You MUST include these EXACT remedies in your response as plain text (copy them exactly, including the natural empathetic introduction): ' + remedies_section) if remedies_section else ''}
             {follow_up_instruction if follow_up_instruction else ''}
                         """
