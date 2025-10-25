@@ -125,13 +125,221 @@ except Exception as _e:
     logger.warning(f"Google Sheets integration not available: {_e}")
 
 # Constants
-DOC_FILES = ["KP_RULE_1.docx", "KP_RULE_2.docx", "KP_RULE_3.docx"]
+DOC_FILES = ["KP_RULE_1.docx", "KP_RULE_2.docx", "KP_RULE_3.docx", "Laal KItab.docx"]
 DEFAULT_LAT, DEFAULT_LON = 19.0760, 72.8777  # Mumbai Coordinates
 DEFAULT_TZ = 'Asia/Kolkata'
+
+# Lal Kitab Environment Detection Rules
+LAL_KITAB_ENVIRONMENT_RULES = {
+    'Shani': {
+        'triggers': ['hospital', 'loha', 'old area', 'iron', 'metal', 'construction'],
+        'observation': "Aapke grahon se lagta hai aapke ghar ke paas hospital ya darji ki dukaan hai.",
+        'remedy': "Saturday ko tel daan karen, Shani prasann rahenge."
+    },
+    'Mangal': {
+        'triggers': ['tailoring', 'mechanic', 'iron shop', 'garage', 'workshop', 'cutting'],
+        'observation': "Aapke grahon se lagta hai aapke ghar ke paas tailoring ya mechanic ki dukaan hai.",
+        'remedy': "Mangalwar ko hanuman chalisa ka path karein."
+    },
+    'Rahu': {
+        'triggers': ['drain', 'mobile tower', 'nala', 'sewer', 'telecom', 'antenna'],
+        'observation': "Aapke grahon se lagta hai aapke ghar ke paas drain ya mobile tower hai.",
+        'remedy': "Rahu ke liye coconut daan karein."
+    },
+    'Guru': {
+        'triggers': ['school', 'mandir', 'temple', 'college', 'education', 'religious'],
+        'observation': "Aapke grahon se lagta hai aapke ghar ke paas school ya mandir hai.",
+        'remedy': "Guruwar ko gau mata ko hara chara khilayein."
+    },
+    'Shukra': {
+        'triggers': ['beauty parlour', 'jewellery', 'cosmetics', 'fashion', 'salon'],
+        'observation': "Aapke grahon se lagta hai aapke ghar ke paas beauty parlour ya jewellery shop hai.",
+        'remedy': "Shukrawar ko peepal ke ped ko doodh arpit karein."
+    },
+    'Budh': {
+        'triggers': ['stationery', 'printing', 'book', 'paper', 'office supplies'],
+        'observation': "Aapke grahon se lagta hai aapke ghar ke paas stationery ya printing shop hai.",
+        'remedy': "Budhwar ko green moong daal daan karein."
+    },
+    'Surya': {
+        'triggers': ['government office', 'court', 'police', 'administration', 'official'],
+        'observation': "Aapke grahon se lagta hai aapke ghar ke paas government office ya court hai.",
+        'remedy': "Ravivar ko copper ke bartan se Surya Dev ko jal arpit karein."
+    },
+    'Chandra': {
+        'triggers': ['paani', 'dairy', 'water', 'milk', 'pond', 'lake'],
+        'observation': "Aapke grahon se lagta hai aapke ghar ke paas paani ya dairy ka source hai.",
+        'remedy': "Somwar ko chandrama ko doodh arpit karein."
+    }
+}
+
+# KP Horary Number Ranges and Meanings
+KP_HORARY_RANGES = {
+    'immediate_success': (1, 50),
+    'short_term_success': (51, 100),
+    'medium_term_success': (101, 150),
+    'long_term_success': (151, 200),
+    'delayed_success': (201, 249)
+}
+
+# AstroRemedis Product Suggestions
+ASTROREMEDIS_PRODUCTS = {
+    'Shani': [
+        "AstroRemedis ka Maruti Yantra Kachhua apne ghar me rakhen",
+        "AstroRemedis ka Blue Sapphire Bracelet pehenen",
+        "AstroRemedis ka Shani Yantra apne workspace par rakhen"
+    ],
+    'Mangal': [
+        "AstroRemedis ka Red Coral Bracelet pehenen",
+        "AstroRemedis ka Hanuman Yantra apne ghar me rakhen",
+        "AstroRemedis ka Tiger Eye Bracelet pehenen"
+    ],
+    'Rahu': [
+        "AstroRemedis ka Gomed Stone Bracelet pehenen",
+        "AstroRemedis ka Rahu Yantra apne ghar me rakhen",
+        "AstroRemedis ka Black Tourmaline Bracelet pehenen"
+    ],
+    'Guru': [
+        "AstroRemedis ka Yellow Sapphire Bracelet pehenen",
+        "AstroRemedis ka Guru Yantra apne ghar me rakhen",
+        "AstroRemedis ka Citrine Bracelet pehenen"
+    ],
+    'Shukra': [
+        "AstroRemedis ka Rose Quartz Bracelet pehenen",
+        "AstroRemedis ka Shukra Yantra apne ghar me rakhen",
+        "AstroRemedis ka Diamond Bracelet pehenen"
+    ],
+    'Budh': [
+        "AstroRemedis ka Emerald Bracelet pehenen",
+        "AstroRemedis ka Budh Yantra apne ghar me rakhen",
+        "AstroRemedis ka Green Aventurine Bracelet pehenen"
+    ],
+    'Surya': [
+        "AstroRemedis ka Ruby Bracelet pehenen",
+        "AstroRemedis ka Surya Yantra apne ghar me rakhen",
+        "AstroRemedis ka Sunstone Bracelet pehenen"
+    ],
+    'Chandra': [
+        "AstroRemedis ka Pearl Bracelet pehenen",
+        "AstroRemedis ka Chandra Yantra apne ghar me rakhen",
+        "AstroRemedis ka Moonstone Bracelet pehenen"
+    ]
+}
 
 # Set OpenAI API key
 if OPENAI_API_KEY:
     openai.api_key = OPENAI_API_KEY
+
+# Lal Kitab Environment Detection and Chamatkari Tips
+def generate_lal_kitab_observation(chart_data):
+    """Generate Lal Kitab environment observation based on planetary positions"""
+    try:
+        planets = chart_data.get('planets', {})
+        
+        # Find strongest planet (most houses occupied)
+        planet_counts = {}
+        for house, planet_list in planets.items():
+            for planet in planet_list:
+                planet_counts[planet] = planet_counts.get(planet, 0) + 1
+        
+        if planet_counts:
+            strongest_planet = max(planet_counts.keys(), key=lambda x: planet_counts[x])
+            
+            # Map planet codes to names
+            planet_name_map = {
+                'Su': 'Surya', 'Mo': 'Chandra', 'Ma': 'Mangal', 'Me': 'Budh',
+                'Ju': 'Guru', 'Ve': 'Shukra', 'Sa': 'Shani', 'Ra': 'Rahu', 'Ke': 'Ketu'
+            }
+            
+            planet_name = planet_name_map.get(strongest_planet, strongest_planet)
+            
+            if planet_name in LAL_KITAB_ENVIRONMENT_RULES:
+                rule = LAL_KITAB_ENVIRONMENT_RULES[planet_name]
+                return {
+                    'observation': rule['observation'],
+                    'remedy': rule['remedy'],
+                    'planet': planet_name,
+                    'product_suggestion': ASTROREMEDIS_PRODUCTS.get(planet_name, [])[0] if ASTROREMEDIS_PRODUCTS.get(planet_name) else ""
+                }
+        
+        return None
+    except Exception as e:
+        logger.error(f"Error generating Lal Kitab observation: {e}")
+        return None
+
+def generate_chamatkari_tips(chart_data):
+    """Generate additional chamatkari tips based on planetary positions"""
+    try:
+        planets = chart_data.get('planets', {})
+        tips = []
+        
+        # Check for specific planetary combinations
+        for house, planet_list in planets.items():
+            if 'Ju' in planet_list and 'Ve' in planet_list:
+                tips.append("Ghar ke paas mandir hai to Guru ka aashirwad bana hai.")
+            if 'Ra' in planet_list:
+                tips.append("Drain ya nala ke karan Rahu ka prabhav hai, isliye aap me sudden success ke yog bante hain.")
+            if 'Ve' in planet_list:
+                tips.append("Beauty shop ke karan Shukra strong hai, aap naturally attractive vyakti hain.")
+            if 'Sa' in planet_list and 'Ju' in planet_list:
+                tips.append("Kabootar ya pakshi ke karan Shani-Guru dono sthirta dete hain.")
+        
+        return tips[:2]  # Return max 2 tips
+    except Exception as e:
+        logger.error(f"Error generating chamatkari tips: {e}")
+        return []
+
+# KP Horary Analysis for users without birth details
+def generate_kp_horary_analysis(horary_number):
+    """Generate KP Horary analysis based on the provided number (1-249)"""
+    try:
+        if not (1 <= horary_number <= 249):
+            return None
+        
+        # Determine success timing based on number range
+        timing = "unknown"
+        timeframe = "unknown"
+        
+        for range_name, (start, end) in KP_HORARY_RANGES.items():
+            if start <= horary_number <= end:
+                if range_name == 'immediate_success':
+                    timing = "immediate"
+                    timeframe = "1-2 mahine me"
+                elif range_name == 'short_term_success':
+                    timing = "short_term"
+                    timeframe = "3-6 mahine me"
+                elif range_name == 'medium_term_success':
+                    timing = "medium_term"
+                    timeframe = "6-12 mahine me"
+                elif range_name == 'long_term_success':
+                    timing = "long_term"
+                    timeframe = "1-2 saal me"
+                elif range_name == 'delayed_success':
+                    timing = "delayed"
+                    timeframe = "2-3 saal me"
+                break
+        
+        # Generate analysis based on timing
+        if timing == "immediate":
+            analysis = f"Horary number {horary_number} ke hisab se aapka kaam {timeframe} banne ke yog hain."
+        elif timing == "delayed":
+            analysis = f"Horary number {horary_number} ke hisab se result positive rahega, bas thoda samay lagega. {timeframe} me success milegi."
+        else:
+            analysis = f"Horary number {horary_number} ke hisab se aapka kaam {timeframe} banne ke yog hain."
+        
+        # Add remedy suggestion
+        remedy = "Shani prabhav me hai, Shanivar ko tel daan karna shubh rahega."
+        
+        return {
+            'analysis': analysis,
+            'remedy': remedy,
+            'timing': timing,
+            'timeframe': timeframe,
+            'horary_number': horary_number
+        }
+    except Exception as e:
+        logger.error(f"Error generating KP Horary analysis: {e}")
+        return None
 
 # Mole & Mark Prediction System based on planetary positions
 def generate_mole_prediction(chart_data):
@@ -1020,6 +1228,10 @@ class EnhancedAstroBotAPI:
             
             # Generate mole prediction for body marks
             mole_prediction = generate_mole_prediction(chart_data) if chart_data else ""
+            
+            # Generate Lal Kitab observation and chamatkari tips
+            lal_kitab_observation = generate_lal_kitab_observation(chart_data) if chart_data else None
+            chamatkari_tips = generate_chamatkari_tips(chart_data) if chart_data else []
 
             safe_earliest_marriage_year = earliest_marriage_year or (birth_year + min_ages["relationship_advice"])
             logger.info(f"[AI] response_style={response_style}, earliest_realistic_year={earliest_realistic_year}, earliest_marriage_year={safe_earliest_marriage_year}")
@@ -1056,6 +1268,32 @@ class EnhancedAstroBotAPI:
             13. **Response to Confirmation:** "Ye til aapke grah ki urja ka nishan hai."
             14. **Response to Denial:** "Ho sakta hai til chhupa ho, lekin grah ka prabhav aapke charitra me dikh raha hai."
             
+            **LAL KITAB OBSERVATION & CHAMATKARI TIPS:**
+            15. **Environment Detection:** AI khud user ke aas-paas ke environment ke baare me bataaye bina user ke pooche:
+                - Shani → hospital, loha, old area
+                - Mangal → tailoring, mechanic, iron shop
+                - Rahu → drain, mobile tower
+                - Guru → school, mandir
+                - Shukra → beauty parlour, jewellery
+                - Budh → stationery, printing
+                - Surya → government office, court
+                - Chandra → paani, dairy
+            16. **Observation Format:** "Aapke grahon se lagta hai aapke ghar ke paas [environment] hai."
+            17. **Remedy Integration:** Always include remedy with observation: "Saturday ko tel daan karen, Shani prasann rahenge."
+            18. **Chamatkari Tips:** Include strong impact lines like "Ghar ke paas mandir hai to Guru ka aashirwad bana hai."
+            19. **3-Layer Logic:** Detection → Observation → Remedy (all in 2-line response)
+            
+            **KP HORARY MODE (Users without DOB/Time):**
+            20. **Horary Trigger:** If user says they don't have birth details, ask: "Agar aapko birth details nahi pata to 1 se 249 tak koi number soch kar batayein."
+            21. **Horary Analysis:** Based on number (1-249), provide timing prediction:
+                - 1-50: "1-2 mahine me banne ke yog hain"
+                - 51-100: "3-6 mahine me banne ke yog hain"
+                - 101-150: "6-12 mahine me banne ke yog hain"
+                - 151-200: "1-2 saal me banne ke yog hain"
+                - 201-249: "Result positive rahega, bas thoda samay lagega"
+            22. **Horary Remedy:** Always include: "Shani prabhav me hai, Shanivar ko tel daan karna shubh rahega."
+            23. **Label:** Always end horary responses with "Label: KP Horary Analysis"
+            
             **ASTROREMEDIS BRAND INTEGRATION:**
             15. **Product Suggestions:** Naturally suggest AstroRemedis products: "Shani prashant karne ke liye aap AstroRemedis ka Maruti Yantra Kachhua apne ghar me rakhen."
             16. **Trust Statement:** "Main aapko sirf trusted AstroRemedis remedies suggest karta hoon jo siddh aur certified hain."
@@ -1078,6 +1316,10 @@ class EnhancedAstroBotAPI:
             {chart_context}
             
             **MOLE PREDICTION DATA:** {mole_prediction}
+            
+            **LAL KITAB OBSERVATION DATA:** {json.dumps(lal_kitab_observation, ensure_ascii=False) if lal_kitab_observation else "None"}
+            
+            **CHAMATKARI TIPS DATA:** {json.dumps(chamatkari_tips, ensure_ascii=False) if chamatkari_tips else "None"}
             
             **KP ASTROLOGY KNOWLEDGE (Internal Reference Only):**
             {context_from_docs}
@@ -1127,6 +1369,13 @@ class EnhancedAstroBotAPI:
         """Basic astrology response when RAG is not available"""
         user_message_lower = user_message.lower()
         
+        # Check for KP Horary mode trigger
+        if any(phrase in user_message_lower for phrase in [
+            'birth details nahi', 'janm samay nahi', 'birth time nahi', 
+            'dob nahi', 'time of birth nahi', 'birth details nahi pata'
+        ]):
+            return "Agar aapko birth details nahi pata to 1 se 249 tak koi number soch kar batayein. Main us number ke base par KP Horary chart banake aapka analysis karunga."
+        
         if any(word in user_message_lower for word in ['hello', 'hi', 'namaste', 'namaskar', 'pranam']):
             return "Namaste! 🙏 Main Pandit ji hun. Aapka swagat hai AstroRemedis mein!"
         
@@ -1164,13 +1413,19 @@ def home():
             "LangChain Integration",
             "Mangal Dosha Calculation",
             "Advanced AI Responses",
-            "Timezone Support"
+            "Timezone Support",
+            "Lal Kitab Environment Detection",
+            "KP Horary Analysis",
+            "Chamatkari Tips",
+            "AstroRemedis Product Integration"
         ],
         "endpoints": {
             "chat": "/api/chat",
             "kundli": "/api/kundli",
             "analyze": "/api/analyze",
-            "health": "/api/health"
+            "health": "/api/health",
+            "kp-horary": "/api/kp-horary",
+            "lal-kitab": "/api/lal-kitab"
         }
     })
 
@@ -1494,6 +1749,81 @@ def generate_chart():
     except Exception as e:
         logger.error(f"Error in chart generation: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
+@app.route('/api/kp-horary', methods=['POST'])
+def kp_horary_analysis():
+    """KP Horary analysis endpoint for users without birth details"""
+    try:
+        data = request.get_json()
+        horary_number = data.get('horary_number')
+        
+        if not horary_number:
+            return jsonify({
+                "error": "Horary number is required (1-249)"
+            }), 400
+        
+        try:
+            horary_number = int(horary_number)
+        except ValueError:
+            return jsonify({
+                "error": "Horary number must be a valid integer"
+            }), 400
+        
+        if not (1 <= horary_number <= 249):
+            return jsonify({
+                "error": "Horary number must be between 1 and 249"
+            }), 400
+        
+        # Generate KP Horary analysis
+        analysis = generate_kp_horary_analysis(horary_number)
+        
+        if not analysis:
+            return jsonify({
+                "error": "Failed to generate horary analysis"
+            }), 500
+        
+        return jsonify({
+            "success": True,
+            "analysis": analysis,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in KP Horary endpoint: {e}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e)
+        }), 500
+
+@app.route('/api/lal-kitab', methods=['POST'])
+def lal_kitab_analysis():
+    """Lal Kitab environment observation endpoint"""
+    try:
+        data = request.get_json()
+        chart_data = data.get('chart_data')
+        
+        if not chart_data:
+            return jsonify({
+                "error": "Chart data is required for Lal Kitab analysis"
+            }), 400
+        
+        # Generate Lal Kitab observation
+        observation = generate_lal_kitab_observation(chart_data)
+        chamatkari_tips = generate_chamatkari_tips(chart_data)
+        
+        return jsonify({
+            "success": True,
+            "observation": observation,
+            "chamatkari_tips": chamatkari_tips,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in Lal Kitab endpoint: {e}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e)
+        }), 500
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_kundli():

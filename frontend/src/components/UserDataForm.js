@@ -31,7 +31,8 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
     dob: '',
     tob: '',
     place: '',
-    timezone: 'Asia/Kolkata'
+    timezone: 'Asia/Kolkata',
+    mode: 'kundli' // 'kundli' or 'horary'
   });
   
   const [errors, setErrors] = useState({});
@@ -45,7 +46,8 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
         dob: '',
         tob: '',
         place: '',
-        timezone: 'Asia/Kolkata'
+        timezone: 'Asia/Kolkata',
+        mode: 'kundli'
       });
       setErrors({});
     }
@@ -72,41 +74,44 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
   const validateForm = () => {
     const newErrors = {};
     
-    // Name validation
+    // Name validation (always required)
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
     } else if (formData.name.trim().length < 2) {
       newErrors.name = 'Name must be at least 2 characters';
     }
     
-    // Date of birth validation
-    if (!formData.dob) {
-      newErrors.dob = 'Date of birth is required';
-    } else {
-      const dobDate = new Date(formData.dob);
-      const today = new Date();
-      if (dobDate > today) {
-        newErrors.dob = 'Date of birth cannot be in the future';
-      } else if (dobDate < new Date('1900-01-01')) {
-        newErrors.dob = 'Date of birth cannot be before 1900';
+    // For Kundli mode, validate all birth details
+    if (formData.mode === 'kundli') {
+      // Date of birth validation
+      if (!formData.dob) {
+        newErrors.dob = 'Date of birth is required';
+      } else {
+        const dobDate = new Date(formData.dob);
+        const today = new Date();
+        if (dobDate > today) {
+          newErrors.dob = 'Date of birth cannot be in the future';
+        } else if (dobDate < new Date('1900-01-01')) {
+          newErrors.dob = 'Date of birth cannot be before 1900';
+        }
       }
-    }
-    
-    // Time of birth validation
-    if (!formData.tob) {
-      newErrors.tob = 'Time of birth is required';
-    } else {
-      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-      if (!timeRegex.test(formData.tob)) {
-        newErrors.tob = 'Please enter time in HH:MM format (24-hour)';
+      
+      // Time of birth validation
+      if (!formData.tob) {
+        newErrors.tob = 'Time of birth is required';
+      } else {
+        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+        if (!timeRegex.test(formData.tob)) {
+          newErrors.tob = 'Please enter time in HH:MM format (24-hour)';
+        }
       }
-    }
-    
-    // Place validation
-    if (!formData.place.trim()) {
-      newErrors.place = 'Birth place is required';
-    } else if (formData.place.trim().length < 2) {
-      newErrors.place = 'Place name must be at least 2 characters';
+      
+      // Place validation
+      if (!formData.place.trim()) {
+        newErrors.place = 'Birth place is required';
+      } else if (formData.place.trim().length < 2) {
+        newErrors.place = 'Place name must be at least 2 characters';
+      }
     }
     
     setErrors(newErrors);
@@ -124,18 +129,23 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
     setIsSubmitting(true);
     
     try {
-      // Format the data for the backend
+      // Format the data for the backend based on mode
       const formattedData = {
         name: formData.name.trim(),
-        dob: formData.dob,
-        tob: formData.tob + ':00', // Add seconds
-        place: formData.place.trim(),
+        mode: formData.mode,
         timezone: formData.timezone
       };
       
-      // Fire-and-forget: submit to backend to store in Google Sheet
-      // Do not block UX if Sheets write fails
-      astroBotAPI.sendFormData(formattedData).catch(() => {});
+      // Add birth details only for Kundli mode
+      if (formData.mode === 'kundli') {
+        formattedData.dob = formData.dob;
+        formattedData.tob = formData.tob + ':00'; // Add seconds
+        formattedData.place = formData.place.trim();
+        
+        // Fire-and-forget: submit to backend to store in Google Sheet
+        // Do not block UX if Sheets write fails
+        astroBotAPI.sendFormData(formattedData).catch(() => {});
+      }
 
       await onSubmit(formattedData);
       onClose();
@@ -167,8 +177,8 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
     <div className="user-data-form-overlay" onClick={handleBackdropClick}>
       <div className="user-data-form-modal">
         <div className="form-header">
-          <h2>🔮 Kundli Details</h2>
-          <p>Please provide your birth details to generate your personalized Kundli chart</p>
+          <h2>🔮 Astrology Consultation</h2>
+          <p>Choose your consultation method and provide the required details</p>
           <button 
             className="close-btn" 
             onClick={handleClose}
@@ -182,6 +192,43 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="user-data-form">
+          {/* Consultation Mode Selection */}
+          <div className="form-group">
+            <label>Consultation Method *</label>
+            <div className="mode-selection">
+              <label className="mode-option">
+                <input
+                  type="radio"
+                  name="mode"
+                  value="kundli"
+                  checked={formData.mode === 'kundli'}
+                  onChange={handleInputChange}
+                  disabled={isSubmitting}
+                />
+                <div className="mode-card">
+                  <h3>🔮 Kundli Analysis</h3>
+                  <p>Complete birth details required</p>
+                  <small>Date, Time & Place of Birth</small>
+                </div>
+              </label>
+              <label className="mode-option">
+                <input
+                  type="radio"
+                  name="mode"
+                  value="horary"
+                  checked={formData.mode === 'horary'}
+                  onChange={handleInputChange}
+                  disabled={isSubmitting}
+                />
+                <div className="mode-card">
+                  <h3>🎯 KP Horary</h3>
+                  <p>No birth details needed</p>
+                  <small>Just your name & a number</small>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <div className="form-group">
             <label htmlFor="name">Full Name *</label>
             <input
@@ -197,48 +244,69 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
             {errors.name && <span className="error-message">{errors.name}</span>}
           </div>
 
-          <div className="form-group">
-            <label htmlFor="dob">Date of Birth *</label>
-            <input
-              type="date"
-              id="dob"
-              name="dob"
-              value={formData.dob}
-              onChange={handleInputChange}
-              className={errors.dob ? 'error' : ''}
-              disabled={isSubmitting}
-            />
-            {errors.dob && <span className="error-message">{errors.dob}</span>}
-          </div>
+          {/* Birth Details - Only show for Kundli mode */}
+          {formData.mode === 'kundli' && (
+            <>
+              <div className="form-group">
+                <label htmlFor="dob">Date of Birth *</label>
+                <input
+                  type="date"
+                  id="dob"
+                  name="dob"
+                  value={formData.dob}
+                  onChange={handleInputChange}
+                  className={errors.dob ? 'error' : ''}
+                  disabled={isSubmitting}
+                />
+                {errors.dob && <span className="error-message">{errors.dob}</span>}
+              </div>
 
-          <div className="form-group">
-            <label htmlFor="tob">Time of Birth *</label>
-            <input
-              type="time"
-              id="tob"
-              name="tob"
-              value={formData.tob}
-              onChange={handleInputChange}
-              className={errors.tob ? 'error' : ''}
-              disabled={isSubmitting}
-            />
-            {errors.tob && <span className="error-message">{errors.tob}</span>}
-          </div>
+              <div className="form-group">
+                <label htmlFor="tob">Time of Birth *</label>
+                <input
+                  type="time"
+                  id="tob"
+                  name="tob"
+                  value={formData.tob}
+                  onChange={handleInputChange}
+                  className={errors.tob ? 'error' : ''}
+                  disabled={isSubmitting}
+                />
+                {errors.tob && <span className="error-message">{errors.tob}</span>}
+              </div>
 
-          <div className="form-group">
-            <label htmlFor="place">Birth Place/City *</label>
-            <input
-              type="text"
-              id="place"
-              name="place"
-              value={formData.place}
-              onChange={handleInputChange}
-              placeholder="Enter your birth city"
-              className={errors.place ? 'error' : ''}
-              disabled={isSubmitting}
-            />
-            {errors.place && <span className="error-message">{errors.place}</span>}
-          </div>
+              <div className="form-group">
+                <label htmlFor="place">Birth Place/City *</label>
+                <input
+                  type="text"
+                  id="place"
+                  name="place"
+                  value={formData.place}
+                  onChange={handleInputChange}
+                  placeholder="Enter your birth city"
+                  className={errors.place ? 'error' : ''}
+                  disabled={isSubmitting}
+                />
+                {errors.place && <span className="error-message">{errors.place}</span>}
+              </div>
+            </>
+          )}
+
+          {/* Horary Mode Info */}
+          {formData.mode === 'horary' && (
+            <div className="horary-info">
+              <div className="info-card">
+                <h3>🎯 KP Horary Analysis</h3>
+                <p>Don't worry if you don't know your birth details! KP Horary astrology can provide accurate predictions using just a number.</p>
+                <ul>
+                  <li>✅ No birth date, time, or place needed</li>
+                  <li>✅ Accurate predictions based on cosmic timing</li>
+                  <li>✅ Perfect for urgent questions</li>
+                  <li>✅ You'll be asked to choose a number (1-249) during chat</li>
+                </ul>
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="timezone">Timezone</label>
@@ -280,10 +348,10 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
               {isSubmitting ? (
                 <>
                   <div className="loading-spinner"></div>
-                  Generating Kundli...
+                  {formData.mode === 'kundli' ? 'Generating Kundli...' : 'Starting Horary...'}
                 </>
               ) : (
-                'Generate Kundli & Start Chat'
+                formData.mode === 'kundli' ? 'Generate Kundli & Start Chat' : 'Start Horary Analysis'
               )}
             </button>
           </div>

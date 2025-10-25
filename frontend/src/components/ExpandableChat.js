@@ -62,46 +62,73 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         dob: userData.dob || prev.dob,
         tob: userData.tob || prev.tob,
         place: userData.place || prev.place,
-        timezone: userData.timezone || prev.timezone
+        timezone: userData.timezone || prev.timezone,
+        mode: userData.mode || 'kundli'
       }));
 
-      // Personalized spiritual greeting
-      setMessages([
-        {
-          id: 1,
-          text: `Jai Shri Ram 🙏 ${userData.name} ji, swagat hai aapka AstroRemedis par. Main aapka digital Pandit Ji hoon. Aap kaise hain?`,
-          sender: 'pandit',
-          timestamp: new Date().toLocaleTimeString()
-        },
-        {
-          id: 2,
-          text: "Main abhi aapka Kundli chart taiyar kar raha hun... Kripya thoda wait karein, grahon ki sthiti dekhni hai.",
-          sender: 'pandit',
-          timestamp: new Date().toLocaleTimeString()
-        }
-      ]);
-
-      const haveAll = (userData.dob && userData.tob && userData.place);
-      if (haveAll) {
-        // Auto-generate chart when all details are available
-        if (!hasGeneratedRef.current) {
-          setCurrentStep('generating');
-          const details = {
-            name: userData.name,
-            dob: userData.dob,
-            tob: userData.tob,
-            place: userData.place,
-            timezone: userData.timezone || 'Asia/Kolkata'
-          };
-          // Mark as generating immediately to avoid duplicate triggers in Strict Mode
-          hasGeneratedRef.current = true;
-          if (generationTimerRef.current) clearTimeout(generationTimerRef.current);
-          generationTimerRef.current = setTimeout(() => {
-            generateKundli(details);
-          }, 150);
-        }
+      // Check if it's horary mode
+      if (userData.mode === 'horary') {
+        // Horary mode greeting
+        setMessages([
+          {
+            id: 1,
+            text: `Jai Shri Ram 🙏 ${userData.name} ji, swagat hai aapka AstroRemedis par. Main aapka digital Pandit Ji hoon.`,
+            sender: 'pandit',
+            timestamp: new Date().toLocaleTimeString()
+          },
+          {
+            id: 2,
+            text: "Aapne KP Horary analysis choose kiya hai. Ye ek powerful method hai jo birth details ke bina bhi accurate predictions deta hai.",
+            sender: 'pandit',
+            timestamp: new Date().toLocaleTimeString()
+          },
+          {
+            id: 3,
+            text: "Agar aapko birth details nahi pata to 1 se 249 tak koi number soch kar batayein. Main us number ke base par aapka analysis karunga.",
+            sender: 'pandit',
+            timestamp: new Date().toLocaleTimeString()
+          }
+        ]);
+        setCurrentStep('horary_waiting');
       } else {
-        setCurrentStep('ask_dob');
+        // Regular Kundli mode greeting
+        setMessages([
+          {
+            id: 1,
+            text: `Jai Shri Ram 🙏 ${userData.name} ji, swagat hai aapka AstroRemedis par. Main aapka digital Pandit Ji hoon. Aap kaise hain?`,
+            sender: 'pandit',
+            timestamp: new Date().toLocaleTimeString()
+          },
+          {
+            id: 2,
+            text: "Main abhi aapka Kundli chart taiyar kar raha hun... Kripya thoda wait karein, grahon ki sthiti dekhni hai.",
+            sender: 'pandit',
+            timestamp: new Date().toLocaleTimeString()
+          }
+        ]);
+
+        const haveAll = (userData.dob && userData.tob && userData.place);
+        if (haveAll) {
+          // Auto-generate chart when all details are available
+          if (!hasGeneratedRef.current) {
+            setCurrentStep('generating');
+            const details = {
+              name: userData.name,
+              dob: userData.dob,
+              tob: userData.tob,
+              place: userData.place,
+              timezone: userData.timezone || 'Asia/Kolkata'
+            };
+            // Mark as generating immediately to avoid duplicate triggers in Strict Mode
+            hasGeneratedRef.current = true;
+            if (generationTimerRef.current) clearTimeout(generationTimerRef.current);
+            generationTimerRef.current = setTimeout(() => {
+              generateKundli(details);
+            }, 150);
+          }
+        } else {
+          setCurrentStep('ask_dob');
+        }
       }
     }
   }, [userData]);
@@ -259,6 +286,18 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
     return null;
   };
 
+  const parseHoraryNumber = (text) => {
+    // Extract number from text
+    const m = text.match(/(\d+)/);
+    if (m) {
+      const num = parseInt(m[1], 10);
+      if (num >= 1 && num <= 249) {
+        return num;
+      }
+    }
+    return null;
+  };
+
 
   const isValidDate = (yyyyMmDd) => {
     if (!yyyyMmDd) return false;
@@ -383,7 +422,28 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         
         // Stepwise dialog
         let botText = '';
-        if (currentStep === 'ask_name') {
+        if (currentStep === 'horary_waiting') {
+          // Handle horary number input
+          const horaryNumber = parseHoraryNumber(currentInput);
+          if (!horaryNumber) {
+            botText = "Kripya 1 se 249 tak koi number batayiye. Ye number aapke question ke liye cosmic timing determine karega.";
+          } else {
+            // Generate horary analysis
+            try {
+              const horaryResponse = await astroBotAPI.generateKPHorary(horaryNumber);
+              if (horaryResponse.success) {
+                const analysis = horaryResponse.analysis;
+                botText = `${analysis.analysis}\n\n${analysis.remedy}\n\nLabel: KP Horary Analysis`;
+                setCurrentStep('chatting');
+              } else {
+                botText = "Horary analysis mein koi problem aayi hai. Kripya ek aur number try karein.";
+              }
+            } catch (error) {
+              console.error('Horary analysis error:', error);
+              botText = "Horary analysis mein koi problem aayi hai. Kripya ek aur number try karein.";
+            }
+          }
+        } else if (currentStep === 'ask_name') {
           // allow corrections like: name: Rajesh
           let name = null;
           const correction = currentInput.match(/^(?:name|naam)\s*[:\-]\s*(.+)$/i);

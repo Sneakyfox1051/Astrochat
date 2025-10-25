@@ -242,6 +242,86 @@ class AstroBotAPI {
       throw error;
     }
   }
+
+  /**
+   * Generate KP Horary analysis for users without birth details
+   * @param {number} horaryNumber - Number between 1-249
+   * @returns {Promise<Object>} Horary analysis
+   */
+  async generateKPHorary(horaryNumber) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      const response = await fetch(`${this.baseURL}/api/kp-horary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          horary_number: horaryNumber
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        let serverMessage = '';
+        try {
+          const errJson = await response.json();
+          serverMessage = errJson?.error || errJson?.message || '';
+        } catch (_) {
+          try { serverMessage = await response.text(); } catch (_) {}
+        }
+        const detail = serverMessage ? ` - ${serverMessage}` : '';
+        throw new Error(`HTTP error! status: ${response.status}${detail}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating KP Horary:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate Lal Kitab environment observation
+   * @param {Object} chartData - Chart data for analysis
+   * @returns {Promise<Object>} Lal Kitab observation and tips
+   */
+  async generateLalKitabObservation(chartData) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      const response = await fetch(`${this.baseURL}/api/lal-kitab`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chart_data: chartData
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        let serverMessage = '';
+        try {
+          const errJson = await response.json();
+          serverMessage = errJson?.error || errJson?.message || '';
+        } catch (_) {
+          try { serverMessage = await response.text(); } catch (_) {}
+        }
+        const detail = serverMessage ? ` - ${serverMessage}` : '';
+        throw new Error(`HTTP error! status: ${response.status}${detail}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating Lal Kitab observation:', error);
+      throw error;
+    }
+  }
 }
 
 // Create and export API instance

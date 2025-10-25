@@ -136,6 +136,116 @@
   margin-bottom: 8px;
 }
 
+/* Mode Selection Styles */
+.mode-selection {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.mode-option {
+  cursor: pointer;
+  position: relative;
+}
+
+.mode-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mode-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.mode-card:hover {
+  border-color: rgba(228, 107, 0, 0.3);
+  background: linear-gradient(135deg, rgba(228, 107, 0, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  transform: translateY(-2px);
+}
+
+.mode-option input[type="radio"]:checked + .mode-card {
+  border-color: #e46b00;
+  background: linear-gradient(135deg, rgba(228, 107, 0, 0.15) 0%, rgba(228, 107, 0, 0.05) 100%);
+  box-shadow: 0 0 20px rgba(228, 107, 0, 0.2);
+}
+
+.mode-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.mode-card p {
+  margin: 0 0 5px 0;
+  font-size: 13px;
+  color: #b8b8b8;
+}
+
+.mode-card small {
+  font-size: 11px;
+  color: #888;
+  font-style: italic;
+}
+
+/* Horary Info Styles */
+.horary-info {
+  margin: 20px 0;
+}
+
+.info-card {
+  background: linear-gradient(135deg, rgba(0, 150, 255, 0.1) 0%, rgba(0, 150, 255, 0.05) 100%);
+  border: 1px solid rgba(0, 150, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.info-card h3 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #4fc3f7;
+}
+
+.info-card p {
+  margin: 0 0 15px 0;
+  font-size: 14px;
+  color: #e0e0e0;
+  line-height: 1.5;
+}
+
+.info-card ul {
+  margin: 0;
+  padding-left: 20px;
+  list-style: none;
+}
+
+.info-card li {
+  margin: 8px 0;
+  font-size: 13px;
+  color: #c0c0c0;
+  position: relative;
+}
+
+.info-card li::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  background: #4fc3f7;
+  border-radius: 50%;
+}
+
 .form-group input,
 .form-group select {
   width: 100%;
@@ -311,6 +421,44 @@
     height: 35px;
     top: 15px;
     right: 15px;
+  }
+  
+  /* Mode selection responsive */
+  .mode-selection {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .mode-card {
+    padding: 15px;
+  }
+  
+  .mode-card h3 {
+    font-size: 15px;
+  }
+  
+  .mode-card p {
+    font-size: 12px;
+  }
+  
+  .mode-card small {
+    font-size: 10px;
+  }
+  
+  .info-card {
+    padding: 15px;
+  }
+  
+  .info-card h3 {
+    font-size: 16px;
+  }
+  
+  .info-card p {
+    font-size: 13px;
+  }
+  
+  .info-card li {
+    font-size: 12px;
   }
 }
 
