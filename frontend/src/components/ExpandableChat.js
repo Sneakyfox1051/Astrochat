@@ -601,17 +601,39 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
           botText = "Chart generate ho raha hai, kripya wait karein...";
         }
 
-        // Smooth typing simulation - ALL messages in 2 seconds
-        const baseDelay = 2000; // 2s for ALL messages as requested
-        await new Promise(res => setTimeout(res, baseDelay));
-        // Remove initial typing indicator before chunked responses
+        // Remove initial typing indicator immediately
         setMessages(prev => prev.filter(msg => !msg.isTyping));
-        // Clean and cap response; then split into max 2 chunks for quick delivery
+        
+        // Clean and cap response
         const capped = limitAndCleanResponse(botText || '');
-        const parts = capped.split(/\n\s*\n/).filter(Boolean).slice(0, 2);
+        
+        // Split response into chunks by sentences or paragraphs
+        // Use smart splitting to keep chunks meaningful and balanced
+        const splitIntoSentences = (text) => {
+          const sentences = text.split(/(?<=[.!?])\s+/);
+          const chunks = [];
+          let currentChunk = '';
+          
+          for (const sent of sentences) {
+            if ((currentChunk + sent).length < 250) {
+              currentChunk += (currentChunk ? ' ' : '') + sent;
+            } else {
+              if (currentChunk) chunks.push(currentChunk);
+              currentChunk = sent;
+            }
+          }
+          if (currentChunk) chunks.push(currentChunk);
+          
+          return chunks.length > 0 ? chunks : [text];
+        };
+        
+        const parts = splitIntoSentences(capped).slice(0, 4); // Max 4 chunks
+        
         const sendChunk = async (idx) => {
           if (idx >= parts.length) return;
-          // Show typing window for 2 seconds before each chunk
+          
+          // Show typing indicator for 1.5-2.5 seconds before each chunk (randomized for natural feel)
+          const typingDelay = 1500 + Math.random() * 1000; // 1.5s to 2.5s
           const typingMsg = {
             id: nextMessageId(),
             text: '',
@@ -620,19 +642,23 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             isTyping: true
           };
           setMessages(prev => ([...prev, typingMsg]));
-          await new Promise(r => setTimeout(r, 2000));
+          await new Promise(r => setTimeout(r, typingDelay));
+          
           // Replace typing bubble with actual chunk
           setMessages(prev => {
             const withoutTyping = prev.filter(m => !m.isTyping);
             return [...withoutTyping, {
-              id: nextMessageId(),
+              id: nextMessageId(), // Use nextMessageId to ensure unique IDs
               text: parts[idx].trim(),
               sender: 'pandit',
               timestamp: new Date().toLocaleTimeString()
             }];
           });
+          
+          // Continue with next chunk
           await sendChunk(idx + 1);
         };
+        
         await sendChunk(0);
         // Backend now handles follow-up questions, so no need for separate frontend follow-up
         setIsBotTyping(false);
