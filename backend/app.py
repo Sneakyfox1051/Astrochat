@@ -61,8 +61,16 @@ def sanitize_ai_text(text: str) -> str:
         import re
         for pat in patterns:
             cleaned = re.sub(pat, "", cleaned, flags=re.IGNORECASE)
-        # Collapse excessive whitespace
-        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        # Normalize newlines and bullets while preserving line breaks
+        cleaned = cleaned.replace("\r\n", "\n").replace("\r", "\n")
+        # Unify common bullet characters to '- '
+        cleaned = re.sub(r"[•\u2022\u2023\u2043\u2219\u25E6\u204C\u204D\u2219]+\s*", "- ", cleaned)
+        # Ensure each '- ' bullet starts on a new line
+        cleaned = re.sub(r"(?m)(?<!^)(?:\s)+- ", "\n- ", cleaned)
+        # Collapse excessive spaces and tabs but keep newlines
+        cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+        # Limit multiple blank lines to a single blank line
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
         # Hard length cap for safety
         if len(cleaned) > 900:
             cleaned = cleaned[:900]
@@ -607,26 +615,79 @@ def generate_remedies(user_query, chart_data, compact=False):
         }
     }
 
+    # AstroRemedis product catalog for optional links/IDs
+    product_catalog = {
+        "Maruti Yantra Kachhua": {"id": "AR-001", "link": "https://astroremedis.com/product/maruti-yantra-kachhua"},
+        "Rose Quartz Bracelet": {"id": "AR-002", "link": "https://astroremedis.com/product/rose-quartz-bracelet"},
+        "Pyrite Bracelet": {"id": "AR-003", "link": "https://astroremedis.com/product/pyrite-bracelet"},
+        "Tiger Eye Bracelet": {"id": "AR-004", "link": "https://astroremedis.com/product/tiger-eye-bracelet"},
+        "Kuber Yantra": {"id": "AR-005", "link": "https://astroremedis.com/product/kuber-yantra"},
+        "Gauri Shankar Rudraksha": {"id": "AR-006", "link": "https://astroremedis.com/product/gauri-shankar-rudraksha"},
+        "Shukra Yantra": {"id": "AR-007", "link": "https://astroremedis.com/product/shukra-yantra"},
+        "Putra Prapti Yantra": {"id": "AR-008", "link": "https://astroremedis.com/product/putra-prapti-yantra"},
+        "Haridra Ganesh Yantra": {"id": "AR-009", "link": "https://astroremedis.com/product/haridra-ganesh-yantra"},
+        "Moti (Pearl) Stone": {"id": "AR-010", "link": "https://astroremedis.com/product/pearl-stone"},
+        "Turquoise Stone": {"id": "AR-011", "link": "https://astroremedis.com/product/turquoise-stone"},
+        "Vastu Yantra": {"id": "AR-012", "link": "https://astroremedis.com/product/vastu-yantra"},
+        "Red Jasper Bracelet": {"id": "AR-013", "link": "https://astroremedis.com/product/red-jasper-bracelet"},
+        "Ganesha Yantra": {"id": "AR-014", "link": "https://astroremedis.com/product/ganesha-yantra"},
+        "Blue Sapphire (Neelam)": {"id": "AR-015", "link": "https://astroremedis.com/product/blue-sapphire"},
+        "Green Aventurine Bracelet": {"id": "AR-016", "link": "https://astroremedis.com/product/green-aventurine-bracelet"},
+        "Shri Yantra": {"id": "AR-017", "link": "https://astroremedis.com/product/shri-yantra"},
+        "Citrine Stone": {"id": "AR-018", "link": "https://astroremedis.com/product/citrine-stone"},
+        "Amethyst Stone": {"id": "AR-019", "link": "https://astroremedis.com/product/amethyst-stone"},
+        "Tulsi Mala": {"id": "AR-020", "link": "https://astroremedis.com/product/tulsi-mala"},
+        "Health Yantra": {"id": "AR-021", "link": "https://astroremedis.com/product/health-yantra"}
+    }
+
+    def format_product_line(line: str) -> str:
+        """Augment a buyable line with AstroRemedis product link/ID if recognized.
+        Keeps tone natural; avoids ad-like phrasing.
+        """
+        try:
+            # Try to find a known product key within the line
+            for product_name, meta in product_catalog.items():
+                if product_name.lower() in line.lower():
+                    suffix_parts = []
+                    if meta.get("id"):
+                        suffix_parts.append(f"ID: {meta['id']}")
+                    if meta.get("link"):
+                        suffix_parts.append(meta['link'])
+                    if suffix_parts:
+                        return f"{line} ({' | '.join(suffix_parts)})"
+                    return line
+            return line
+        except Exception:
+            return line
+
     selected = remedy_map.get(problem_area, remedy_map["8. Health, Energy aur Peace Remedies 8"])
     activation_process = (
         "Apne item ko pehenne se pehle, usey Ganga Jal ya kachche doodh se saaf karein aur dhoop/chaandni mein energize karein. Is dauran 'Om Namah Shivaya' ka 11 baar jaap karein."
     )
+    trust_statement = (
+        "Main aapko sirf trusted AstroRemedis remedies suggest karta hoon jo siddh aur certified hain."
+    )
 
     if compact:
         paid_one = selected['buyable'][0] if selected.get('buyable') else ''
+        paid_one = format_product_line(paid_one) if paid_one else ''
         return (
             f"\n\nAdab ji, ghabrane ki koi baat nahi hai. Yadi aap chahte hain ki aapki problems thik ho ya kuch bhi use kar sakein, uske liye aap yeh upay kar sakte hain:\n\n"
             f"1. {selected['free']}\n"
-            f"2. {paid_one} (AstroRemedis pe uplabdh hai)\n\n"
-            f"Activation: {activation_process}"
+            f"2. {paid_one} (AstroRemedis pe uplabdh)\n\n"
+            f"Activation: {activation_process}\n"
+            f"{trust_statement}"
         )
     else:
+        # Decorate each buyable with link/ID when available
+        decorated = [format_product_line(item) for item in selected['buyable']]
         response = (
             f"\n---\n\n"
             f"{selected['category_name']} ke liye upay:\n"
             f"- Free: {selected['free']}\n"
-            f"- Paid options: \n  - " + "\n  - ".join(selected['buyable']) + "\n"
-            f"- Activation: {activation_process}"
+            f"- Paid options: \n  - " + "\n  - ".join(decorated) + "\n"
+            f"- Activation: {activation_process}\n"
+            f"- Note: {trust_statement}"
         )
         return response
 
@@ -1392,7 +1453,7 @@ class EnhancedAstroBotAPI:
                 - Budh → stationery, printing
                 - Surya → government office, court
                 - Chandra → paani, dairy
-            22. **Observation Format:** "Aapke grahon se lagta hai aapke ghar ke paas [environment] hai."
+            22. **Observation Format:** "Aapke grahon se lagta hai aapke ghar ke paas [environment] hai. Agar Shukra prabal ho to vinamr tarike se poochho: 'Kya aapke paas beauty shop ya parlour hai?' Is baat ke karan aap naturally attractive vyakti dikhte ho."
             23. **Remedy Integration:** Always include remedy with observation: "Saturday ko tel daan karen, Shani prasann rahenge."
             24. **Chamatkari Tips:** Include strong impact lines like "Ghar ke paas mandir hai to Guru ka aashirwad bana hai."
             25. **3-Layer Logic:** Detection → Observation → Remedy (all in 2-line response)
@@ -1457,6 +1518,7 @@ class EnhancedAstroBotAPI:
 
             **CRITICAL INSTRUCTION - READ CAREFULLY:** 
             You MUST make every response feel fresh, natural, and conversational. NO templates, NO repetition. Imagine you're talking to a friend - be warm, be real, be natural. Vary your greetings, mix your sentence structure, change your phrasing every single time. Make the user feel like they're talking to a REAL person, not a robot reciting scripts. Keep it spiritual but human, accurate but natural. NEVER repeat the exact same words for similar questions. BE CONVERSATIONAL, BE HUMAN.
+            Formatting rules: Start each bullet on a new line beginning with '- '. Avoid numbering unless needed. Keep 3–5 short bullets total.
             {('MANDATORY: You MUST include these EXACT remedies in your response as plain text (copy them exactly, including the natural empathetic introduction): ' + remedies_section) if remedies_section else ''}
             {follow_up_instruction if follow_up_instruction else ''}
                             """
