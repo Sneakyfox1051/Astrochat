@@ -577,17 +577,16 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
           botText = "Chart generate ho raha hai, kripya wait karein...";
         }
 
-        // Smooth typing simulation with thoughtful delay for predictions (8s as requested)
-        const looksLikePrediction = /\b(yog|shaadi|career|health|mangal|grah|kundli|prediction|yoga|marriage|job|business|future)\b/i.test(botText || '');
-        const baseDelay = looksLikePrediction ? 8000 : 2000; // 8s for predictions, 2s for regular chat
+        // Smooth typing simulation - ALL messages in 2 seconds
+        const baseDelay = 2000; // 2s for ALL messages as requested
         await new Promise(res => setTimeout(res, baseDelay));
         // Remove initial typing indicator before chunked responses
         setMessages(prev => prev.filter(msg => !msg.isTyping));
-        // Split into 2-3 chunks and show an 8s typing window between chunks
+        // Split into 2-3 chunks and show a 2s typing window between chunks
         const parts = (botText || '').split(/\n\s*\n/).filter(Boolean).slice(0, 3);
         const sendChunk = async (idx) => {
           if (idx >= parts.length) return;
-          // Show typing window for 8 seconds before each chunk
+          // Show typing window for 2 seconds before each chunk
           const typingMsg = {
             id: nextMessageId(),
             text: 'Pandit ji typing...',
@@ -596,7 +595,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             isTyping: true
           };
           setMessages(prev => ([...prev, typingMsg]));
-          await new Promise(r => setTimeout(r, 8000));
+          await new Promise(r => setTimeout(r, 2000));
           // Replace typing bubble with actual chunk
           setMessages(prev => {
             const withoutTyping = prev.filter(m => !m.isTyping);

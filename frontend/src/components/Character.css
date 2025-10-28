@@ -29,7 +29,7 @@
 }
 
 .character-image {
-  width: 620px;
+  width: 450px;
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 0 14px rgba(228, 107, 0, 0.32));
@@ -40,7 +40,7 @@
 
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
+  50% { transform: translateY(-10px); }
 }
 
 @keyframes aura-pulse {

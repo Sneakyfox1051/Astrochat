@@ -17,10 +17,10 @@
   overflow: hidden;
   z-index: 0;
   background: url('../assets/Astro_Backgorund.png') center/cover no-repeat;
-  background-size: 108%;
+ 
   /* Position tuned so the moon sits within the chat window area */
   background-position: 78% 30%;
-  animation: bg-pan-zoom 45s ease-in-out infinite alternate;
+  /* animation: bg-pan-zoom 45s ease-in-out infinite alternate; */
 }
 
 /* Large, slow background gradient that subtly moves */
