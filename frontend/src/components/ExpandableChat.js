@@ -322,8 +322,8 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
     setIsGeneratingKundli(true);
     setIsGeneratingChart(true);
     setCurrentStep('generating');
-    // Ensure the experience feels Antral: minimum 8-10s before showing chart
-    const minDelayMs = 8000 + Math.floor(Math.random() * 2000);
+    // Minimum delay before showing chart (reduced to 2 seconds)
+    const minDelayMs = 2000;
     const genStartTs = Date.now();
     
     try {

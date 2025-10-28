@@ -18,6 +18,13 @@ backend/astroremedis-*.json
 backend/*-credentials.json
 backend/*-key.json
 
+# ChromaDB (vector database)
+chroma_db/
+backend/chroma_db/
+
+# Frontend cache and build artifacts
+frontend/node_modules/.cache/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -52,6 +59,7 @@ lerna-debug.log*
 # React build
 frontend/build/
 frontend/dist/
+frontend/node_modules/
 
 # IDE
 .vscode/
