@@ -186,6 +186,31 @@
   font-weight: 400;
 }
 
+/* Typing indicator bubble */
+.message-bubble.typing {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.typing-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 50%;
+  display: inline-block;
+  animation: blink 1.2s infinite ease-in-out;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
 /* Input Container */
 .input-container {
   padding: 1rem 1.5rem;

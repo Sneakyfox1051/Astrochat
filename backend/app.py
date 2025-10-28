@@ -45,6 +45,34 @@ import random
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Output sanitizer to enforce client feedback: remove code-like junk and keep it concise
+def sanitize_ai_text(text: str) -> str:
+    try:
+        if not text:
+            return ""
+        cleaned = str(text)
+        # Remove inline code or script-ish fragments
+        patterns = [
+            r"\$\([^\)]*\)",            # jQuery-like $(...)
+            r"</?script[^>]*>",            # <script> tags
+            r"[{}();<>]{2,}",              # sequences of code punctuation
+            r"#[A-Za-z0-9_-]+\([^)]*\)",  # selector-like foo(#id)
+        ]
+        import re
+        for pat in patterns:
+            cleaned = re.sub(pat, "", cleaned, flags=re.IGNORECASE)
+        # Collapse excessive whitespace
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        # Hard length cap for safety
+        if len(cleaned) > 900:
+            cleaned = cleaned[:900]
+            last_period = cleaned.rfind('.')
+            if last_period > 700:
+                cleaned = cleaned[:last_period + 1]
+        return cleaned
+    except Exception:
+        return text
+
 # LangChain imports - Optional for RAG functionality
 try:
     from langchain_community.document_loaders import Docx2txtLoader
@@ -311,7 +339,10 @@ def generate_horary_response(question, user_name=None):
             - Mix Hindi-English naturally
             - Keep it spiritual but human and real
             - Answer the question: {question}
-            - End with varied blessing, not always the same one
+            - STRICTLY avoid inventing physical features (e.g., mole/til) unless the user asked explicitly.
+            - Keep responses concise: 3–5 short bullet points max, under ~120 words total.
+            - No unrelated or technical gibberish; stay on-topic and clear.
+            - End with one short blessing line, varied each time.
             """
             
             response = openai.chat.completions.create(
@@ -320,12 +351,16 @@ def generate_horary_response(question, user_name=None):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"Provide KP Horary analysis for: {question}"}
                 ],
-                temperature=1.3,
-                max_tokens=300,
-                frequency_penalty=0.8,
-                presence_penalty=0.6
+                temperature=0.6,
+                max_tokens=220,
+                frequency_penalty=0.3,
+                presence_penalty=0.2,
+                timeout=12
             )
-            return response.choices[0].message.content
+            ai_text = sanitize_ai_text(response.choices[0].message.content.strip())
+            if len(ai_text) > 900:
+                ai_text = (ai_text[:900].rsplit('.', 1)[0] + '.') if '.' in ai_text[:900] else ai_text[:900]
+            return ai_text
         
         # Fallback (simplified)
         question_lower = question.lower() if question else ""
@@ -1428,14 +1463,15 @@ class EnhancedAstroBotAPI:
             
             try:
                 response = openai.chat.completions.create(
-                    model="gpt-4-turbo",
-                    messages=[{"role": "user", "content": system_prompt}],
-                    temperature=1.2,  # Increased for more creative, varied responses
-                    max_tokens=800,
-                    frequency_penalty=0.7,  # Penalize repetition
-                    presence_penalty=0.6  # Encourage diverse topics
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": system_prompt + "\n\nRespond in 3–5 short bullet points, max ~120 words. Avoid physical feature claims unless explicitly asked. Be crisp."}],
+                    temperature=0.7,
+                    max_tokens=260,
+                    frequency_penalty=0.4,
+                    presence_penalty=0.2,
+                    timeout=12
                 )
-                return response.choices[0].message.content
+                return sanitize_ai_text(response.choices[0].message.content.strip())
             except Exception as primary_error:
                 try:
                     short_prompt = system_prompt
@@ -1443,9 +1479,12 @@ class EnhancedAstroBotAPI:
                         short_prompt = short_prompt[:6000]
                     response = openai.chat.completions.create(
                         model="gpt-4o-mini",
-                        messages=[{"role": "user", "content": short_prompt}]
+                        messages=[{"role": "user", "content": short_prompt + "\n\nKeep it to 3–5 concise bullets (<=120 words)."}],
+                        temperature=0.6,
+                        max_tokens=220,
+                        timeout=10
                     )
-                    return response.choices[0].message.content
+                    return sanitize_ai_text(response.choices[0].message.content.strip())
                 except Exception as fallback_error:
                     logger.error(f"OpenAI error primary: {primary_error}; fallback: {fallback_error}")
                     return "Sorry, I encountered a temporary AI capacity issue. Please ask again in a few seconds."

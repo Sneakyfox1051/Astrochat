@@ -47,6 +47,30 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
   const messageIdRef = React.useRef(3);
   const [isBotTyping, setIsBotTyping] = useState(false);
   // Ensure chart is generated only once per chat session
+
+  // Cap verbose AI replies and keep only the first 3–5 bullets
+  const limitAndCleanResponse = (text) => {
+    if (!text) return '';
+    let cleaned = String(text).replace(/\s+$/,'').replace(/^\s+/,'');
+    const lines = cleaned.split('\n');
+    let bulletCount = 0;
+    const kept = [];
+    for (const line of lines) {
+      const isBullet = /^\s*(?:[-•\u2022]|\d+\.)\s+/.test(line);
+      if (isBullet) {
+        bulletCount += 1;
+        if (bulletCount > 5) continue;
+      }
+      kept.push(line);
+    }
+    cleaned = kept.join('\n');
+    // Soft cap overall length for UI
+    const words = cleaned.split(/\s+/);
+    if (words.length > 130) {
+      cleaned = words.slice(0, 130).join(' ') + '…';
+    }
+    return cleaned;
+  };
   const hasGeneratedRef = React.useRef(false);
   const generationTimerRef = React.useRef(null);
 
@@ -432,7 +456,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         // Show typing indicator
         const typingMessage = {
           id: nextMessageId(),
-          text: "Pandit ji typing...",
+          text: "",
           sender: 'pandit',
           timestamp: new Date().toLocaleTimeString(),
           isTyping: true
@@ -582,14 +606,15 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         await new Promise(res => setTimeout(res, baseDelay));
         // Remove initial typing indicator before chunked responses
         setMessages(prev => prev.filter(msg => !msg.isTyping));
-        // Split into 2-3 chunks and show a 2s typing window between chunks
-        const parts = (botText || '').split(/\n\s*\n/).filter(Boolean).slice(0, 3);
+        // Clean and cap response; then split into max 2 chunks for quick delivery
+        const capped = limitAndCleanResponse(botText || '');
+        const parts = capped.split(/\n\s*\n/).filter(Boolean).slice(0, 2);
         const sendChunk = async (idx) => {
           if (idx >= parts.length) return;
           // Show typing window for 2 seconds before each chunk
           const typingMsg = {
             id: nextMessageId(),
-            text: 'Pandit ji typing...',
+            text: '',
             sender: 'pandit',
             timestamp: new Date().toLocaleTimeString(),
             isTyping: true
@@ -681,8 +706,14 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
                 </div>
               )}
               <div className="message-content">
-                <div className="message-bubble">
-                  <p>{message.text}</p>
+                <div className={`message-bubble ${message.isTyping ? 'typing' : ''}`}>
+                  {message.isTyping ? (
+                    <div className="typing-dots" aria-label="Pandit ji typing">
+                      <span></span><span></span><span></span>
+                    </div>
+                  ) : (
+                    <p>{message.text}</p>
+                  )}
                   <span className="message-time">{message.timestamp}</span>
                 </div>
               </div>
