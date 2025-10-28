@@ -291,8 +291,12 @@ def generate_chamatkari_tips(chart_data):
         return []
 
 # Generate comprehensive horary responses for follow-up questions
-def generate_horary_response(question, user_name):
+def generate_horary_response(question, user_name=None):
     """Generate varied horary responses using AI instead of fixed templates"""
+    # Ensure user_name has a default value
+    if not user_name:
+        user_name = 'User'
+    
     try:
         # Use AI for natural, varied responses
         if OPENAI_API_KEY:
@@ -378,7 +382,9 @@ Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"
 
     except Exception as e:
         logger.error(f"Error generating horary response: {e}")
-        return f"Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {user_name} ji, KP Horary analysis mein koi problem aayi hai. Kripya question dobara puchh sakte hain. Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"
+        # Ensure user_name is defined even in exception handler
+        safe_user_name = user_name if user_name else 'User'
+        return f"Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {safe_user_name} ji, KP Horary analysis mein koi problem aayi hai. Kripya question dobara puchh sakte hain. Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"
 
 # KP Horary Analysis for users without birth details
 def generate_kp_horary_analysis(horary_number):
@@ -1171,6 +1177,9 @@ class EnhancedAstroBotAPI:
                     return {'name': src.get('name', 'User')}
 
             compact_chart = build_compact_chart(chart_data or {})
+            # Extract user name from chart data
+            user_name = compact_chart.get('name', 'User') if isinstance(compact_chart, dict) else 'User'
+            
             chart_context = json.dumps(compact_chart, ensure_ascii=False)
             if len(chart_context) > 3000:
                 chart_context = chart_context[:3000]
