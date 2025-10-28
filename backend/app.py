@@ -637,7 +637,8 @@ def generate_remedies(user_query, chart_data, compact=False):
         "Citrine Stone": {"id": "AR-018", "link": "https://astroremedis.com/product/citrine-stone"},
         "Amethyst Stone": {"id": "AR-019", "link": "https://astroremedis.com/product/amethyst-stone"},
         "Tulsi Mala": {"id": "AR-020", "link": "https://astroremedis.com/product/tulsi-mala"},
-        "Health Yantra": {"id": "AR-021", "link": "https://astroremedis.com/product/health-yantra"}
+        "Health Yantra": {"id": "AR-021", "link": "https://astroremedis.com/product/health-yantra"},
+        "Black Agate Pendant": {"id": "AR-022", "link": "https://astroremedis.com/product/black-agate-pendant"}
     }
 
     def format_product_line(line: str) -> str:
@@ -1497,6 +1498,20 @@ class EnhancedAstroBotAPI:
             53. **Time Reference:** ALWAYS use specific FUTURE years/timeframes derived from the Dasha data
             54. **Technical Query Handling:** When users ask for technical details, provide specific information with clear explanations
             55. **REMEDY INSTRUCTION:** If remedies are provided, include them in your main response as plain text before the spiritual blessing. NEVER use markdown formatting like **bold** or *italic* - use only plain text.
+
+            **RESPONSE FORMAT (STRICT):**
+            Output EXACTLY 5 lines in this order, each starting with the given label, one per line:
+            1) Start Line
+            2) Core Line 1
+            3) Core Line 2
+            4) Follow-up
+            5) End Line
+            Keep each line short and natural. Example structure:
+            Start Line Namaskar, main aapka AstroRemedis ka AI Astrologer hoon.
+            Core Line 1 [Vedic / KP analysis + optional mole/guess, concise]
+            Core Line 2 [Lal Kitab observation + short remedy + subtle product]
+            Follow-up Kya main aur detail me bataun?
+            End Line Bhagwan aap par apna aashirwad sadaiv banaaye rakhen.
 
             **User's Question:** "{question}"
 
