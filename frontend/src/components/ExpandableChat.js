@@ -322,8 +322,8 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
     setIsGeneratingKundli(true);
     setIsGeneratingChart(true);
     setCurrentStep('generating');
-    // Ensure the experience feels Antral: minimum 8-10s before showing chart
-    const minDelayMs = 8000 + Math.floor(Math.random() * 2000);
+    // Minimum delay before showing chart (reduced to 2 seconds)
+    const minDelayMs = 2000;
     const genStartTs = Date.now();
     
     try {
@@ -577,17 +577,17 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
           botText = "Chart generate ho raha hai, kripya wait karein...";
         }
 
-        // Smooth typing simulation with thoughtful delay for predictions (8s as requested)
+        // Smooth typing simulation with reduced delay (2s for all responses)
         const looksLikePrediction = /\b(yog|shaadi|career|health|mangal|grah|kundli|prediction|yoga|marriage|job|business|future)\b/i.test(botText || '');
-        const baseDelay = looksLikePrediction ? 8000 : 2000; // 8s for predictions, 2s for regular chat
+        const baseDelay = 2000; // 2s for all responses
         await new Promise(res => setTimeout(res, baseDelay));
         // Remove initial typing indicator before chunked responses
         setMessages(prev => prev.filter(msg => !msg.isTyping));
-        // Split into 2-3 chunks and show an 8s typing window between chunks
+        // Split into 2-3 chunks and show typing window between chunks (reduced to 2s)
         const parts = (botText || '').split(/\n\s*\n/).filter(Boolean).slice(0, 3);
         const sendChunk = async (idx) => {
           if (idx >= parts.length) return;
-          // Show typing window for 8 seconds before each chunk
+          // Show typing window for 2 seconds before each chunk
           const typingMsg = {
             id: nextMessageId(),
             text: 'Pandit ji typing...',
@@ -596,7 +596,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             isTyping: true
           };
           setMessages(prev => ([...prev, typingMsg]));
-          await new Promise(r => setTimeout(r, 8000));
+          await new Promise(r => setTimeout(r, 2000));
           // Replace typing bubble with actual chunk
           setMessages(prev => {
             const withoutTyping = prev.filter(m => !m.isTyping);
