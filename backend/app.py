@@ -16,8 +16,8 @@ Key Features:
 - Form data collection and storage
 
 Author: AstroRemedis Development Team
-Version: 2.0.0
-Last Updated: 2024
+Version: 2.0.0 (Final Logic Integrated)
+Last Updated: 2025
 """
 
 import os
@@ -39,6 +39,7 @@ import pytz
 import openai
 from dotenv import load_dotenv
 from googleapiclient.errors import HttpError
+import random
 
 # Configure logging early (needed for early warnings)
 logging.basicConfig(level=logging.INFO)
@@ -243,7 +244,7 @@ def generate_lal_kitab_observation(chart_data):
                 planet_counts[planet] = planet_counts.get(planet, 0) + 1
         
         if planet_counts:
-            strongest_planet = max(planet_counts.keys(), key=lambda x: planet_counts[x])
+            strongest_planet_code = max(planet_counts.keys(), key=lambda x: planet_counts[x])
             
             # Map planet codes to names
             planet_name_map = {
@@ -251,7 +252,7 @@ def generate_lal_kitab_observation(chart_data):
                 'Ju': 'Guru', 'Ve': 'Shukra', 'Sa': 'Shani', 'Ra': 'Rahu', 'Ke': 'Ketu'
             }
             
-            planet_name = planet_name_map.get(strongest_planet, strongest_planet)
+            planet_name = planet_name_map.get(strongest_planet_code, strongest_planet_code)
             
             if planet_name in LAL_KITAB_ENVIRONMENT_RULES:
                 rule = LAL_KITAB_ENVIRONMENT_RULES[planet_name]
@@ -409,15 +410,15 @@ def generate_mole_prediction(chart_data):
     try:
         planets = chart_data.get('planets', {})
         planet_mark_map = {
-            'Sun': {'body_part': 'chest/neck', 'meaning': 'leadership aur netritva'},
-            'Moon': {'body_part': 'face/throat', 'meaning': 'emotion aur sensitivity'},
-            'Mars': {'body_part': 'shoulder/hand', 'meaning': 'bravery aur mehnat'},
-            'Mercury': {'body_part': 'leg/back', 'meaning': 'intelligence aur communication'},
-            'Jupiter': {'body_part': 'abdomen', 'meaning': 'fortune aur wisdom'},
-            'Venus': {'body_part': 'lips/cheek', 'meaning': 'beauty aur love'},
-            'Saturn': {'body_part': 'knee/leg', 'meaning': 'stability aur discipline'},
-            'Rahu': {'body_part': 'ear/neck', 'meaning': 'mystery aur innovation'},
-            'Ketu': {'body_part': 'spine/back', 'meaning': 'spirituality aur detachment'}
+            'Su': {'body_part': 'chest/neck', 'meaning': 'leadership aur netritva'},
+            'Mo': {'body_part': 'face/throat', 'meaning': 'emotion aur sensitivity'},
+            'Ma': {'body_part': 'shoulder/hand', 'meaning': 'bravery aur mehnat'},
+            'Me': {'body_part': 'leg/back', 'meaning': 'intelligence aur communication'},
+            'Ju': {'body_part': 'abdomen', 'meaning': 'fortune aur wisdom'},
+            'Ve': {'body_part': 'lips/cheek', 'meaning': 'beauty aur love'},
+            'Sa': {'body_part': 'knee/leg', 'meaning': 'stability aur discipline'},
+            'Ra': {'body_part': 'ear/neck', 'meaning': 'mystery aur innovation'},
+            'Ke': {'body_part': 'spine/back', 'meaning': 'spirituality aur detachment'}
         }
         
         # Find strongest planet (most houses occupied)
@@ -663,7 +664,7 @@ class EnhancedAstroBotAPI:
             self.access_token = token_data["access_token"]
             # Set expiry time (assuming 1 hour token validity)
             self.token_expiry = datetime.now().replace(microsecond=0, second=0, minute=0) + \
-                              timedelta(hours=1)
+                                 timedelta(hours=1)
             return self.access_token
             
         except requests.exceptions.RequestException as e:
@@ -718,7 +719,7 @@ class EnhancedAstroBotAPI:
             "mangal_dosha": {
                 "is_present": mangal_dosha_present,
                 "description": "Mangal Dosha present - may affect marriage timing" if mangal_dosha_present 
-                              else "Mangal Dosha absent - favorable for marriage"
+                                  else "Mangal Dosha absent - favorable for marriage"
             },
             "birth_location": pob_text,
             "coordinates": {
@@ -730,7 +731,11 @@ class EnhancedAstroBotAPI:
         }
 
     def calculate_chart_data(self, name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str):
-        """Calculate comprehensive chart data including Mangal Dosha"""
+        """
+        Calculates comprehensive chart data.
+        Integrates Streamlit's robust logic for Ascendant, Planet-in-House calculation, 
+        and Mangal Dosha processing from Prokerala's Planet Position and Mangal Dosha endpoints.
+        """
         access_token = self.get_access_token()
         if not access_token:
             # Return mock data for testing when API credentials are not available
@@ -764,14 +769,12 @@ class EnhancedAstroBotAPI:
         api_data = {
             'planet_positions': [],
             'mangal_dosha': {},
-            'kundli': {},
-            'chart': {},
-            'yoga': {},
             'dasha_periods': {},
-            'sade_sati': {}
+            'raw_chart_svg': None,
+            'kundli': {}, # Kept for backward compatibility but focusing on planet-position/mangal-dosha
         }
         
-        # Fetch Planet Positions
+        # --- 1. Fetch Planet Positions (CORE) ---
         try:
             planets_url = f"{base_url}/planet-position"
             planets_response = requests.get(planets_url, headers=headers, params=common_params)
@@ -780,22 +783,21 @@ class EnhancedAstroBotAPI:
             logger.info("✅ Planet Positions fetched successfully")
         except Exception as e:
             logger.error(f"Error fetching Planet Positions: {e}")
-            return None
-            
-        # Birth Details removed as per request
-            
-        # Fetch Kundli (Advanced)
+            return None # Cannot proceed without planet positions
+
+        # --- 2. Fetch Mangal Dosha ---
         try:
-            kundli_url = f"{base_url}/kundli/advanced"
-            kundli_response = requests.get(kundli_url, headers=headers, params=common_params)
-            kundli_response.raise_for_status()
-            api_data['kundli'] = kundli_response.json().get('data', {})
-            logger.info("✅ Kundli Advanced fetched successfully")
+            # Using the /mangal-dosha endpoint from the Streamlit logic's use case
+            mangal_dosha_url = f"{base_url}/mangal-dosha"
+            mangal_dosha_response = requests.get(mangal_dosha_url, headers=headers, params=common_params)
+            mangal_dosha_response.raise_for_status()
+            api_data['mangal_dosha'] = mangal_dosha_response.json().get('data', {})
+            logger.info("✅ Mangal Dosha fetched successfully")
         except Exception as e:
-            logger.error(f"Error fetching Kundli: {e}")
-            api_data['kundli'] = {}
-            
-        # Fetch Dasha Periods (Mahadasha, Antardasha, Pratyantardasha)
+            logger.error(f"Error fetching Mangal Dosha: {e}")
+            api_data['mangal_dosha'] = {}
+
+        # --- 3. Fetch Dasha Periods (For AI timing logic) ---
         try:
             dasha_url = f"{base_url}/dasha"
             dasha_response = requests.get(dasha_url, headers=headers, params=common_params)
@@ -805,77 +807,51 @@ class EnhancedAstroBotAPI:
         except Exception as e:
             logger.error(f"Error fetching Dasha Periods: {e}")
             api_data['dasha_periods'] = {}
-            
-        # Use Kundli data for chart (JSON fallback)
-        try:
-            # The kundli data already contains chart information
-            kundli_data = api_data.get('kundli', {})
-            api_data['chart'] = {
-                'kundli_data': kundli_data,
-                'format': 'json',
-                'chart_type': 'north-indian',
-                'ayanamsa': 5,
-                'astrology_system': 'KP'
-            }
-            logger.info("✅ Chart data extracted from Kundli successfully")
-        except Exception as e:
-            logger.error(f"Error processing Chart data: {e}")
-            api_data['chart'] = {}
-            
-        # Fetch Bhava Positions (KP Houses)
-        try:
-            bhava_url = f"{base_url}/bhava-position"
-            bhava_response = requests.get(bhava_url, headers=headers, params=common_params)
-            bhava_response.raise_for_status()
-            api_data['bhava_position'] = bhava_response.json().get('data', {}).get('bhava_position', [])
-            logger.info("✅ Bhava Positions fetched successfully")
-        except Exception as e:
-            logger.error(f"Error fetching Bhava Positions: {e}")
-            api_data['bhava_position'] = []
-
-        # Process Data into CHART_DATA format
+        
+        # --- 4. Process Planet Data for House Positions (EXACT STREAMLIT LOGIC) ---
         planets_in_house = {}
         ascendant_sign = None
         ascendant_sign_name = "N/A"
-        
-        planet_code_map = {
-            'Sun': 'Su', 'Moon': 'Mo', 'Mars': 'Ma', 'Mercury': 'Me', 
-            'Jupiter': 'Ju', 'Venus': 'Ve', 'Saturn': 'Sa', 
-            'Rahu': 'Ra', 'Ketu': 'Ke', 'Lagna': 'La'
-        }
+        # Using the exact map from the Streamlit code
+        planet_code_map = {'Sun': 'Su', 'Moon': 'Mo', 'Mars': 'Ma', 'Mercury': 'Me', 'Jupiter': 'Ju', 'Venus': 'Ve', 'Saturn': 'Sa', 'Rahu': 'Ra', 'Ketu': 'Ke', 'Lagna': 'La'}
 
-        # Find Lagna/Ascendant
-        lagna_planet = next((p for p in api_data['planet_positions'] if p.get('id') == 100), None)
-        if lagna_planet:
-            ascendant_sign = lagna_planet.get('rasi', {}).get('id')
-            ascendant_sign_name = lagna_planet.get('rasi', {}).get('name')
-                
-        # Map Planets to Houses using Bhava Positions if available; fallback to rasi-based
-        bhava_map = {p.get('id'): p.get('bhava') for p in api_data.get('bhava_position', []) if p.get('id') is not None}
         if api_data['planet_positions']:
-            for planet in api_data['planet_positions']:
-                planet_id = planet.get('id')
-                planet_name = planet.get('name')
-                house_num = None
-                if planet_id in bhava_map and isinstance(bhava_map[planet_id], int) and bhava_map[planet_id] > 0:
-                    house_num = bhava_map[planet_id]
-                elif ascendant_sign is not None:
-                    sign_id = planet.get('rasi', {}).get('id')
-                    if isinstance(sign_id, int):
-                        house_num = (sign_id - ascendant_sign + 12) % 12 + 1
+            # Find Lagna planet (ID 100)
+            lagna_planet = next((p for p in api_data['planet_positions'] if p.get('id') == 100 or p.get('name') == 'Lagna'), None)
+            
+            if lagna_planet:
+                ascendant_sign = lagna_planet.get('rasi', {}).get('id')
+                ascendant_sign_name = lagna_planet.get('rasi', {}).get('name')
                 
-                if house_num is not None:
-                    planet_code = planet_code_map.get(planet_name, (planet_name or '')[:2])
-                    if house_num not in planets_in_house:
-                        planets_in_house[house_num] = []
-                    if planet_code and planet_code not in planets_in_house[house_num]:
-                        planets_in_house[house_num].append(planet_code)
-        # Final CHART_DATA Structure with comprehensive ProKerala data
+            if ascendant_sign is not None and ascendant_sign > 0:
+                for planet in api_data['planet_positions']:
+                    rasi_id = planet.get('rasi', {}).get('id')
+                    planet_name = planet.get('name')
+                    
+                    if rasi_id is not None and planet_name and rasi_id != 0:
+                        # CRITICAL: House calculation matching the Streamlit logic:
+                        # House_num = (Rasi_ID of Planet - Rasi_ID of Lagna + 12) % 12 + 1 
+                        house_num = (rasi_id - ascendant_sign + 12) % 12 + 1 
+                        
+                        planet_code = planet_code_map.get(planet_name, planet_name[:2])
+                        
+                        if house_num not in planets_in_house:
+                            planets_in_house[house_num] = []
+                        if planet_code and planet_code not in planets_in_house[house_num]:
+                            planets_in_house[house_num].append(planet_code)
+            
+            # Populate houses without planets to ensure a 12-house structure for the AI
+            for i in range(1, 13):
+                if i not in planets_in_house:
+                    planets_in_house[i] = []
+        
+        # --- 5. Final CHART_DATA Structure ---
         final_chart_data = {
             "name": name,
+            "dob_date": dob_date.strftime('%Y-%m-%d'), # Add DOB as string for AI logic
             "ascendant_sign": ascendant_sign or 1,
             "ascendant_sign_name": ascendant_sign_name,
-            "planets": planets_in_house,
+            "planets": planets_in_house, # CRITICAL: This is the correctly mapped House: [Planets] list
             "birth_location": pob_text,
             "coordinates": {
                 "latitude": latitude,
@@ -883,28 +859,24 @@ class EnhancedAstroBotAPI:
             },
             "timezone": timezone_str,
             
-            # ProKerala API Data
+            # ProKerala API Data (consolidated/streamlined)
             "prokerala_data": {
-                "kundli": api_data['kundli'],
-                "chart": api_data['chart'],
                 "planet_positions": api_data['planet_positions'],
-                "bhava_position": api_data.get('bhava_position', [])
             },
             
-            # Chart Configuration
-            "chart_config": {
-                "ayanamsa": 5,
-                "chart_style": "north-indian",
-                "astrology_system": "KP"
+            # Primary analysis fields
+            "mangal_dosha": {
+                "is_present": api_data['mangal_dosha'].get('is_present', False),
+                "description": api_data['mangal_dosha'].get('description', 'Mangal Dosha analysis completed.')
             },
+            "dasha_periods": api_data.get('dasha_periods', {}),
             
-            # Legacy fields (best-effort) derived from Kundli Advanced if available
-            "mangal_dosha": api_data.get('kundli', {}).get('mangal_dosha', {}),
-            "dasha_periods": api_data.get('dasha_periods', {}),  # Now from dedicated dasha API call
+            # Set defaults for other data points for the AI (kept simplified)
             "sade_sati": api_data.get('kundli', {}).get('sade_sati', {}),
-            "yoga": api_data.get('kundli', {}).get('yoga_details', [])
+            "yoga": api_data.get('kundli', {}).get('yoga_details', []) 
         }
         
+        logger.info(f"✅ Comprehensive KP Astrology data processed for {name}")
         return final_chart_data
 
     def generate_chart_only(self, name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str):
@@ -1068,10 +1040,11 @@ class EnhancedAstroBotAPI:
             context_from_docs = raw_docs[:2000]  # cap to ~2k chars
 
             # Age calculation for realistic predictions
-            dob_date = chart_data.get('dob_date')
-            if isinstance(dob_date, str):
+            dob_date_str = chart_data.get('dob_date')
+            dob_date = None
+            if isinstance(dob_date_str, str):
                 try:
-                    dob_date = datetime.strptime(dob_date, '%Y-%m-%d').date()
+                    dob_date = datetime.strptime(dob_date_str, '%Y-%m-%d').date()
                 except:
                     dob_date = datetime(2000, 1, 1).date()
             elif not dob_date:
@@ -1083,11 +1056,11 @@ class EnhancedAstroBotAPI:
             
             # Define minimum realistic ages for prediction categories
             min_ages = {
-                "relationship_advice": 21, 
-                "career_guidance": 20, 
-                "health_guidance": 15, 
-                "child_guidance": 22, 
-                "general_astrology": 15 
+                "relationship_advice": 21,  
+                "career_guidance": 20,  
+                "health_guidance": 15,  
+                "child_guidance": 22,  
+                "general_astrology": 15  
             }
             
             # Determine the context and required minimum age
@@ -1101,7 +1074,7 @@ class EnhancedAstroBotAPI:
                 response_style = "relationship_advice"
                 earliest_marriage_year = birth_year + min_ages["relationship_advice"]
             elif any(word in question_lower for word in ['child', 'santan', 'baby', 'bacche']):
-                response_style = "child_guidance" 
+                response_style = "child_guidance"  
             elif any(word in question_lower for word in ['career', 'job', 'profession', 'work', 'rozi', 'naukri']):
                 response_style = "career_guidance"
             elif any(word in question_lower for word in ['health', 'swasthya', 'illness', 'disease']):
@@ -1124,10 +1097,10 @@ class EnhancedAstroBotAPI:
             # Age/Logic context for the AI
             age_logic_context = f"""
             **INTERNAL AGE/LOGIC CONTEXT (CRITICAL - NON-NEGOTIABLE):**
-            User was born in {birth_year}. Current Age: {current_age}. 
+            User was born in {birth_year}. Current Age: {current_age}.  
             **CURRENT YEAR: 2025** - All predictions must be for 2025 onwards.
             Question Type: {response_style}.
-            Minimum realistic age for this event is {minimum_age_threshold} years. 
+            Minimum realistic age for this event is {minimum_age_threshold} years.  
             Prediction year MUST be >= {earliest_realistic_year} AND >= 2025.
             
             **CRITICAL MARRIAGE AGE CHECK:** For marriage predictions, the person must be at least 21 years old (legal age).
@@ -1147,9 +1120,7 @@ class EnhancedAstroBotAPI:
                         # keep max 5 planet codes per house
                         compact_planets[str(house)] = (plist or [])[:5]
 
-                    prokerala = src.get('prokerala_data') or {}
-                    birth_details = prokerala.get('birth_details') or {}
-                    mangal = src.get('mangal_dosha') or prokerala.get('mangal_dosha') or {}
+                    mangal = src.get('mangal_dosha') or {}
 
                     compact = {
                         'name': src.get('name') or 'User',
@@ -1158,21 +1129,12 @@ class EnhancedAstroBotAPI:
                         'ascendant_sign_name': src.get('ascendant_sign_name'),
                         'planets': compact_planets,
                         'mangal_dosha': {
-                            'is_present': bool(mangal.get('is_present', mangal.get('has_dosha', False))),
+                            'is_present': bool(mangal.get('is_present', False)),
                             'description': (mangal.get('description') or '')[:200]
                         },
                         'birth_location': src.get('birth_location'),
                         'coordinates': src.get('coordinates'),
-                        'timezone': src.get('timezone'),
-                        'chart_config': src.get('chart_config') or {
-                            'ayanamsa': 5,
-                            'chart_style': 'north-indian',
-                            'astrology_system': 'KP'
-                        },
-                        'summary': {
-                            'has_chart_svg': bool((src or {}).get('svg_content')),
-                            'has_prokerala': bool(prokerala)
-                        }
+                        'timezone': src.get('timezone')
                     }
                     return compact
                 except Exception:
@@ -1264,7 +1226,7 @@ class EnhancedAstroBotAPI:
                 # Map response styles to follow-up categories
                 follow_up_category = {
                     "relationship_advice": "relationship",
-                    "career_guidance": "career", 
+                    "career_guidance": "career",  
                     "health_guidance": "health",
                     "child_guidance": "relationship"  # Children questions map to relationship category
                 }.get(response_style, "general")
@@ -1412,7 +1374,7 @@ class EnhancedAstroBotAPI:
             **IMPORTANT:** Remember to maintain the spiritual pandit personality, use Hindi-English mix naturally, keep responses concise (2 lines), and always end with the blessing. Provide complete, accurate predictions based on the data provided. NEVER use markdown formatting - use only plain text without any special characters like ** or *.
             {('MANDATORY: You MUST include these EXACT remedies in your response as plain text (copy them exactly, including the natural empathetic introduction): ' + remedies_section) if remedies_section else ''}
             {follow_up_instruction if follow_up_instruction else ''}
-                        """
+                            """
             
             try:
                 response = openai.chat.completions.create(
@@ -1490,7 +1452,7 @@ def home():
     """Home endpoint"""
     return jsonify({
         "message": "Enhanced AstroBot API is running!",
-        "version": "2.0.0",
+        "version": "2.0.0 (Final Logic Integrated)",
         "features": [
             "RAG (Retrieval Augmented Generation)",
             "LangChain Integration",
