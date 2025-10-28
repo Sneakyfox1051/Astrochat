@@ -292,9 +292,39 @@ def generate_chamatkari_tips(chart_data):
 
 # Generate comprehensive horary responses for follow-up questions
 def generate_horary_response(question, user_name):
-    """Generate comprehensive horary responses for follow-up questions"""
+    """Generate varied horary responses using AI instead of fixed templates"""
     try:
-        question_lower = question.lower()
+        # Use AI for natural, varied responses
+        if OPENAI_API_KEY:
+            greetings = ["Namaskar", "Pranam", "Haan bilkul", "Achha dekhte hain"]
+            import random
+            
+            system_prompt = f"""
+            You are a KP Horary astrologer helping {user_name}. 
+            - Use natural, conversational tone - NOT robotic or templated
+            - Vary your greetings naturally (use: {random.choice(greetings)})
+            - Provide unique responses every time - NEVER repeat same phrases
+            - Mix Hindi-English naturally
+            - Keep it spiritual but human and real
+            - Answer the question: {question}
+            - End with varied blessing, not always the same one
+            """
+            
+            response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Provide KP Horary analysis for: {question}"}
+                ],
+                temperature=1.3,
+                max_tokens=300,
+                frequency_penalty=0.8,
+                presence_penalty=0.6
+            )
+            return response.choices[0].message.content
+        
+        # Fallback (simplified)
+        question_lower = question.lower() if question else ""
         
         # Career-related questions
         if any(word in question_lower for word in ['career', 'job', 'naukri', 'business', 'rozi', 'work', 'profession']):
