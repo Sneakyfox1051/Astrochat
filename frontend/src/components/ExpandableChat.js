@@ -477,7 +477,15 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
               const horaryResponse = await astroBotAPI.generateKPHorary(horaryNumber);
               if (horaryResponse.success) {
                 const analysis = horaryResponse.analysis;
-                botText = `${analysis.analysis}\n\n${analysis.remedy}\n\nLabel: KP Horary Analysis`;
+                // Normalize horary to strict 5-line format with bullets for readability
+                const remaining = analysis.analysis.replace(/^Namaskar,[^\n]*?\.\s*/, '').trim();
+                // Use bullets for visual clarity and consistency with kundali mode
+                botText = `Namaskar, main aapka AstroRemedis ka AI Astrologer hoon.\n\n` +
+                  `- ${remaining}${remaining.endsWith('.') ? '' : '.'} Lagta hai aap is waqt thoda chintit mehsoos kar rahe hain, par result positive rahega.\n` +
+                  `- Shani prabhav me hai, isliye Shanivar ko tel daan karen. Main sirf trusted AstroRemedis remedies suggest karta hoon.\n` +
+                  `- AstroRemedis ka Maruti Yantra Kachhua apne ghar me rakhen — ye aapke liye laabhdayak hoga aur grah shanti me sahayak rahega.\n\n` +
+                  `Kya main aur detail me bataun?\n` +
+                  `Bhagwan aap par apna aashirwad sadaiv banaaye rakhen.`;
                 setCurrentStep('chatting');
               } else {
                 botText = "Horary analysis mein koi problem aayi hai. Kripya ek aur number try karein.";
@@ -608,8 +616,28 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         const capped = limitAndCleanResponse(botText || '');
         
         // Split response into chunks by sentences or paragraphs
-        // Use smart splitting to keep chunks meaningful and balanced
+        // Preserve strict 5-line labeled format if detected
         const splitIntoSentences = (text) => {
+          // Preserve multi-line blocks: either previously labeled formats or any bullets/newlines
+          const labeledPattern = /^(Start Line|Core Line 1|Core Line 2|Follow-up|End Line)\b/m;
+          const bulletPattern = /\n\s*-\s+/; // bullet lines present
+          if (labeledPattern.test(text) || bulletPattern.test(text) || /\n/.test(text)) {
+            // Keep as one block to avoid breaking the labeled format
+            const lines = text.split(/\n+/).filter(Boolean);
+            // Keep only the first occurrence of each label in order
+            const keepLabels = ["Start Line", "Core Line 1", "Core Line 2", "Follow-up", "End Line"]; 
+            const kept = [];
+            for (const label of keepLabels) {
+              const line = lines.find(l => l.startsWith(label));
+              if (line) kept.push(line);
+            }
+            if (kept.length > 0) {
+              const block = kept.join('\n');
+              return [block];
+            }
+            // Not labeled — keep original to preserve newlines
+            return [text];
+          }
           const sentences = text.split(/(?<=[.!?])\s+/);
           const chunks = [];
           let currentChunk = '';

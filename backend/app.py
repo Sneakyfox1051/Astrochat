@@ -427,7 +427,7 @@ Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"
         logger.error(f"Error generating horary response: {e}")
         # Ensure user_name is defined even in exception handler
         safe_user_name = user_name if user_name else 'User'
-        return f"Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {safe_user_name} ji, KP Horary analysis mein koi problem aayi hai. Kripya question dobara puchh sakte hain. Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"
+        return f"Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {safe_user_name} ji, KP Horary analysis mein koi problem aayi hai. Kripya question dobara puchh sakte hain. Bhagwan aap par apna aashirwad sadaiv banaaye rakhen."
 
 # KP Horary Analysis for users without birth details
 def generate_kp_horary_analysis(horary_number):
@@ -467,8 +467,8 @@ def generate_kp_horary_analysis(horary_number):
         else:
             analysis = f"Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. Horary number {horary_number} ke hisab se aapka kaam {timeframe} banne ke yog hain."
         
-        # Add remedy suggestion
-        remedy = "Shani prabhav me hai, Shanivar ko tel daan karna shubh rahega. AstroRemedis ka Maruti Yantra Kachhua apne ghar me rakhen."
+        # Add remedy suggestion with benefit phrasing
+        remedy = "Shani prabhav me hai, Shanivar ko tel daan karna shubh rahega. AstroRemedis ka Maruti Yantra Kachhua apne ghar me rakhen — ye aapke liye laabhdayak hoga aur grah shanti me sahayak rahega."
         blessing = "Bhagwan aap par apna aashirwad sadaiv banaaye rakhen."
         
         return {
@@ -1426,6 +1426,8 @@ class EnhancedAstroBotAPI:
             12. **Human Guess:** AI apne tone me human guess bhi de – "Lagta hai is waqt aap apne kaam ya rishton ko lekar thoda confuse hain."
             13. **Follow-up:** Follow-up hamesha ho – "Kya main aur detail me bataun?"
             14. **Precise Answers:** User ke sawalon ka jawab calculation ke adhar par precise aur warm tone me ho
+
+            IMPORTANT: Agar chart_data me Lagna, Chandra Rashi, aur Dasha available ho to INHE EXACTLY use karo. In teenon ko kabhi change ya guess mat karo. Same DOB ke liye ye hamesha same rahenge.
             
             **MOLE & MARK PREDICTION SYSTEM (Til/Daag/Nishan):**
             15. **Body Mark Reading Layer:** AI apne grahon ke adhar par khud bataye ki user ke sharir ke kis part par til ya daag hone ke yog hain
@@ -1465,8 +1467,7 @@ class EnhancedAstroBotAPI:
             28. **Horary Analysis:** AI us number ke base par KP Horary chart banaye aur reply de: "Horary number ke hisab se aapka kaam 3 mahine me banne ke yog hain."
             29. **Delay Response:** Agar delay ho to: "Result positive rahega, bas thoda samay lagega."
             30. **Horary Remedy:** Optional – ek short upaay bhi include ho: "Shani prabhav me hai, Shanivar ko tel daan karna shubh rahega."
-            31. **Label:** Always end horary responses with "Label: KP Horary Analysis"
-            32. **Complete Horary Answers:** When in horary mode, provide COMPLETE answers to all questions without asking for birth details
+            31. **Complete Horary Answers:** When in horary mode, provide COMPLETE answers to all questions without asking for birth details. Do not append any labels.
             
             **ASTROREMEDIS BRAND INTEGRATION:**
             33. **Product Suggestions:** Har remedy ke sath AstroRemedis ke product suggestion subtle tarike se aaye: "Shani prashant karne ke liye aap AstroRemedis ka Maruti Yantra Kachhua apne ghar me rakhen."
@@ -1500,18 +1501,18 @@ class EnhancedAstroBotAPI:
             55. **REMEDY INSTRUCTION:** If remedies are provided, include them in your main response as plain text before the spiritual blessing. NEVER use markdown formatting like **bold** or *italic* - use only plain text.
 
             **RESPONSE FORMAT (STRICT):**
-            Output EXACTLY 5 lines in this order, each starting with the given label, one per line:
-            1) Start Line
-            2) Core Line 1
-            3) Core Line 2
-            4) Follow-up
-            5) End Line
-            Keep each line short and natural. Example structure:
-            Start Line Namaskar, main aapka AstroRemedis ka AI Astrologer hoon.
-            Core Line 1 [Vedic / KP analysis + optional mole/guess, concise]
-            Core Line 2 [Lal Kitab observation + short remedy + subtle product]
-            Follow-up Kya main aur detail me bataun?
-            End Line Bhagwan aap par apna aashirwad sadaiv banaaye rakhen.
+            Output EXACTLY 5 short lines (no labels), one per line, in this order:
+            1) Greeting line
+            2) Core Line 1 (Vedic/KP + optional mole/guess)
+            3) Core Line 2 (Lal Kitab + remedy + subtle product)
+            4) Follow-up (short question)
+            5) Blessing line
+            Example (no labels):
+            Namaskar, main aapka AstroRemedis ka AI Astrologer hoon.
+            Aapki Lagna [Sign] hai... (ya Horary number ...)
+            Aapke grahon se... AstroRemedis ka ... beneficial hoga.
+            Kya main aur detail me bataun?
+            Bhagwan aap par apna aashirwad sadaiv banaaye rakhen.
 
             **User's Question:** "{question}"
 
