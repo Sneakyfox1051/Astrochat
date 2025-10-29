@@ -98,13 +98,22 @@ def enforce_identity_consistency(text: str, profile: dict = None, suppress_ident
                 if not value:
                     return
                 if label == 'lagna':
-                    patterns = [r"(?im)^(?:lagna|ascendant)\s*[:\-]\s*.+$"]
+                    patterns = [
+                        r"(?im)^(?:lagna|ascendant)\s*[:\-]\s*.+$",
+                        r"(?i)(lagna|ascendant)\b[^\n]*"
+                    ]
                     replacement = f"Lagna {value}"
                 elif label == 'chandra_rashi':
-                    patterns = [r"(?im)^(?:chandra\s*rashi|moon\s*sign|moonsign)\s*[:\-]\s*.+$"]
+                    patterns = [
+                        r"(?im)^(?:chandra\s*rashi|moon\s*sign|moonsign)\s*[:\-]\s*.+$",
+                        r"(?i)(chandra\s*rashi|moon\s*sign|moonsign)\b[^\n]*"
+                    ]
                     replacement = f"Chandra Rashi {value}"
                 elif label == 'mahadasha':
-                    patterns = [r"(?im)^(?:maha\s*dasha|mahadasha|current\s*dasha)\s*[:\-]\s*.+$"]
+                    patterns = [
+                        r"(?im)^(?:maha\s*dasha|mahadasha|current\s*dasha)\s*[:\-]\s*.+$",
+                        r"(?i)(maha\s*dasha|mahadasha|current\s*dasha)\b[^\n]*"
+                    ]
                     replacement = f"Mahadasha {value}"
                 else:
                     return
@@ -114,6 +123,9 @@ def enforce_identity_consistency(text: str, profile: dict = None, suppress_ident
             sub_identity('lagna', profile.get('lagna'))
             sub_identity('chandra_rashi', profile.get('chandra_rashi'))
             sub_identity('mahadasha', profile.get('mahadasha'))
+
+        # Remove redundant phrasing like "Moonsign" duplicates
+        t = re.sub(r"(?i)\bmoonsign\b", "Moon sign", t)
 
         if suppress_identities:
             lines = t.split("\n")
@@ -1404,7 +1416,7 @@ class EnhancedAstroBotAPI:
             
             **MOLE & MARK PREDICTION SYSTEM (Til/Daag/Nishan):**
             15. **Body Mark Reading Layer:** AI apne grahon ke adhar par khud bataye ki user ke sharir ke kis part par til ya daag hone ke yog hain
-            16. **Confident Prediction:** AI confident ho – pooche nahi, khud kahe: "Aapke grahon se lagta hai aapke daaye kandhe par til hai. Ye Mangal ka prabhav hai jo mehnat aur jeet ka pratik hai."
+            16. **Confident Prediction (ON REQUEST ONLY):** Sirf tab likhein jab user ne til/daag ke baare me poocha ho. Location ko region-level (jaise "kandhe/haath") me rakhein; left/right side ka ANDAZA NA lagayein.
             17. **Planet-wise Logic:**
                 - Surya → chest/neck (leadership)
                 - Chandra → face/throat (emotion)
@@ -1429,9 +1441,9 @@ class EnhancedAstroBotAPI:
                 - Budh → stationery, printing
                 - Surya → government office, court
                 - Chandra → paani, dairy
-            22. **Observation Format:** "Aapke grahon se lagta hai aapke ghar ke paas [environment] hai. Agar Shukra prabal ho to vinamr tarike se poochho: 'Kya aapke paas beauty shop ya parlour hai?' Is baat ke karan aap naturally attractive vyakti dikhte ho."
-            23. **Remedy Integration:** Always include remedy with observation: "Saturday ko tel daan karen, Shani prasann rahenge."
-            24. **Chamatkari Tips:** Include strong impact lines like "Ghar ke paas mandir hai to Guru ka aashirwad bana hai."
+            22. **Observation Format:** "Aapke grahon se lagta hai aapke ghar ke paas [environment] hai..."
+            23. **Remedy Integration (STRICT):** Agar LAL KITAB OBSERVATION DATA me 'remedy' diya gaya ho to WAHI remedy likhein. Kisi bhi planet ke bina 'Saturday tel daan' jaise generic remedy NA likhein.
+            24. **Chamatkari Tips:** "Ghar ke paas mandir hai to Guru ka aashirwad bana hai." (sirf tab jab relevant combinations hon)
             25. **3-Layer Logic:** Detection → Observation → Remedy (all in 2-line response)
             26. **Developer Note:** AI ko environment ke prediction aur remedy dono ek hi 2-line me dene hain
             
@@ -1439,7 +1451,7 @@ class EnhancedAstroBotAPI:
             27. **Horary Trigger:** Agar user ke paas janm samay nahi hai to AI bole: "Agar aapko birth details nahi pata to 1 se 249 tak koi number soch kar batayein."
             28. **Horary Analysis:** AI us number ke base par KP Horary chart banaye aur reply de: "Horary number ke hisab se aapka kaam 3 mahine me banne ke yog hain."
             29. **Delay Response:** Agar delay ho to: "Result positive rahega, bas thoda samay lagega."
-            30. **Horary Remedy:** Optional – ek short upaay bhi include ho: "Shani prabhav me hai, Shanivar ko tel daan karna shubh rahega."
+            30. **Horary Remedy:** Sirf tab upaay dein jab KB/logic me explicitly available ho; generic remedies NA dein.
             31. **Complete Horary Answers:** When in horary mode, provide COMPLETE answers to all questions without asking for birth details. Do not append any labels.
             
             **ASTROREMEDIS BRAND INTEGRATION:**
