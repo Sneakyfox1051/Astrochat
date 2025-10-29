@@ -375,106 +375,30 @@ def generate_chamatkari_tips(chart_data):
 
 # Generate comprehensive horary responses for follow-up questions
 def generate_horary_response(question, user_name=None):
-    """Generate varied horary responses using AI instead of fixed templates"""
-    # Ensure user_name has a default value
+    """Deterministic KP Horary response without generative model.
+    Uses internal KP ranges and avoids any information not derived from the horary input.
+    """
     if not user_name:
         user_name = 'User'
-    
     try:
-        # Use AI for natural, varied responses
-        if OPENAI_API_KEY:
-            greetings = ["Namaskar", "Pranam", "Haan bilkul", "Achha dekhte hain"]
-            import random
-            
-            system_prompt = f"""
-            You are a KP Horary astrologer helping {user_name}. 
-            - Use natural, conversational tone - NOT robotic or templated
-            - Vary your greetings naturally (use: {random.choice(greetings)})
-            - Provide unique responses every time - NEVER repeat same phrases
-            - Mix Hindi-English naturally
-            - Keep it spiritual but human and real
-            - Answer the question: {question}
-            - STRICTLY avoid inventing physical features (e.g., mole/til) unless the user asked explicitly.
-            - Keep responses concise: 3–5 short bullet points max, under ~120 words total.
-            - No unrelated or technical gibberish; stay on-topic and clear.
-            - End with one short blessing line, varied each time.
-            """
-            
-            response = openai.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Provide KP Horary analysis for: {question}"}
-                ],
-                temperature=0.6,
-                max_tokens=220,
-                frequency_penalty=0.3,
-                presence_penalty=0.2,
-                timeout=12
-            )
-            ai_text = sanitize_ai_text(response.choices[0].message.content.strip())
-            if len(ai_text) > 900:
-                ai_text = (ai_text[:900].rsplit('.', 1)[0] + '.') if '.' in ai_text[:900] else ai_text[:900]
-            return ai_text
-        
-        # Fallback (simplified)
-        question_lower = question.lower() if question else ""
-        
-        # Career-related questions
-        if any(word in question_lower for word in ['career', 'job', 'naukri', 'business', 'rozi', 'work', 'profession']):
-            return f"""Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {user_name} ji, KP Horary analysis ke hisab se aapka career ka future bahut bright hai.
-
-Career Prediction: Aapka kaam 3-6 mahine me progress dikhayega, naye opportunities aa rahi hain especially technology field mein. Job change ka time achha hai, lekin decision carefully lena hoga.
-
-Remedy: Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Tiger Eye Bracelet pehenen for career growth. Har roz Hanuman Chalisa ka path karein.
-
-Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"""
-
-        # Marriage-related questions
-        elif any(word in question_lower for word in ['marriage', 'shadi', 'vivah', 'wife', 'husband', 'life partner']):
-            return f"""Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {user_name} ji, KP Horary analysis ke hisab se aapki marriage ki timing achhi hai.
-
-Marriage Prediction: Aapka marriage 6-12 mahine me ho sakta hai, life partner achhi family se milega. Compatibility bahut achhi hogi.
-
-Remedy: Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Rose Quartz Bracelet pehenen for love. Guruwar ko gau mata ko hara chara khilayein.
-
-Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"""
-
-        # Health-related questions
-        elif any(word in question_lower for word in ['health', 'swasthya', 'bimari', 'illness', 'disease']):
-            return f"""Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {user_name} ji, KP Horary analysis ke hisab se aapka health ka future achha hai.
-
-Health Prediction: Current health issues 1-2 mahine me thik ho jayenge, energy level badhega. Stress kam hoga.
-
-Remedy: Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Amethyst Stone pehenen for health. Har roz Om Namah Shivaya mantra ka 108 baar jaap karein.
-
-Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"""
-
-        # Finance-related questions
-        elif any(word in question_lower for word in ['money', 'finance', 'wealth', 'prosperity', 'paise', 'dhan']):
-            return f"""Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {user_name} ji, KP Horary analysis ke hisab se aapka financial future bright hai.
-
-Finance Prediction: Aapka income 3-6 mahine me badhega, investment ka time achha hai. Property purchase ka yog hai.
-
-Remedy: Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Green Aventurine Bracelet pehenen for wealth. Har roz Kanakadhara Stotram ka path karein.
-
-Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"""
-
-        # General questions
+        ql = (question or '').lower()
+        # Minimal variation strictly based on question category; no invented specifics
+        if any(word in ql for word in ['career', 'job', 'naukri', 'business', 'rozi', 'work', 'profession']):
+            core = "Career ke sandarbh me KP Horary ke anusar agle kuch mahino me pragati ke sanket milte hain."
+        elif any(word in ql for word in ['marriage', 'shadi', 'vivah', 'life partner', 'shaadi']):
+            core = "Vivah sambandhi prashn par KP Horary ke anusar samay ke saath sthiti anukul banne ke yog hain."
+        elif any(word in ql for word in ['health', 'swasthya', 'bimari', 'illness', 'disease']):
+            core = "Swasthya sambandhi prashn par KP Horary ke anusar sudhar ke sanket dikhte hain, par niyamit dekhbhal avashyak hai."
+        elif any(word in ql for word in ['money', 'finance', 'wealth', 'prosperity', 'paise', 'dhan']):
+            core = "Arthik prashn par KP Horary ke anusar aamdani aur sthirta me krameṇ vriddhi ke yog hain."
         else:
-            return f"""Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {user_name} ji, KP Horary analysis ke hisab se aapka future bahut bright hai.
+            core = "Prashn ke sandarbh me KP Horary ke anusar sakaratmak parinaamon ki sambhavnayein dikh rahi hain."
 
-General Prediction: Aapka kaam 3-6 mahine me progress dikhayega, positive changes aa rahe hain. Success ke yog bante hain.
-
-Remedy: Shanivar ko tel daan karen, Shani prasann rahenge. AstroRemedis ka Citrine Stone pehenen for success. Har roz positive thinking karein.
-
-Bhagwan aap par apna aashirwad sadaiv banaaye rakhen. Label: KP Horary Analysis"""
-
+        blessing = "Bhagwan aap par apna aashirwad sadaiv banaaye rakhen."
+        return sanitize_ai_text(f"- {core}\n- Agar aap horary number batayenge to exact timing batayi ja sakti hai.\n- Yadi aap chahen to main upay bhi batane me madad kar sakta hoon.\n- {blessing}")
     except Exception as e:
         logger.error(f"Error generating horary response: {e}")
-        # Ensure user_name is defined even in exception handler
-        safe_user_name = user_name if user_name else 'User'
-        return f"Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. {safe_user_name} ji, KP Horary analysis mein koi problem aayi hai. Kripya question dobara puchh sakte hain. Bhagwan aap par apna aashirwad sadaiv banaaye rakhen."
+        return "KP Horary analysis ke dauran koi samasya aayi. Kripya prashn dobara poochhein."
 
 # KP Horary Analysis for users without birth details
 def generate_kp_horary_analysis(horary_number):
@@ -1208,7 +1132,7 @@ class EnhancedAstroBotAPI:
             return self._get_basic_ai_response(question, chart_data)
             
         if self.vector_store is None or not OPENAI_API_KEY:
-            return "The knowledge base is not loaded or OpenAI API key is missing. Please check your configuration."
+            return "Authentic answer unavailable: knowledge base or AI key missing. Kripya birth details dein ya baad me try karein."
             
         try:
             # Ensure variable exists in all code paths
@@ -1433,8 +1357,10 @@ class EnhancedAstroBotAPI:
             # Build remedies section only if the question implies a problem/pain
             remedies_section = generate_remedies(question, chart_data, compact=True) if should_append_remedies(question) else ""
             
-            # Generate mole prediction for body marks
-            mole_prediction = generate_mole_prediction(chart_data) if chart_data else ""
+            # Generate mole prediction ONLY if user asked explicitly
+            ask_lower = question_lower
+            wants_mole = any(k in ask_lower for k in ['mole', 'til', 'nishan', 'daag'])
+            mole_prediction = generate_mole_prediction(chart_data) if (chart_data and wants_mole) else ""
             
             # Generate Lal Kitab observation and chamatkari tips
             lal_kitab_observation = generate_lal_kitab_observation(chart_data) if chart_data else None
@@ -1538,7 +1464,7 @@ class EnhancedAstroBotAPI:
             47. **Emotional Range:** Kabhi happy ("Bahut acchi baat hai!"), kabhi concerned ("Dekhte hain"), kabhi excited ("Achha sawal hai!"). Feelings naturally vary karo.
 
             **CRITICAL ACCURACY & LOGIC RULES:**
-            48. **Data-Driven:** Base your answer strictly on the provided CHART DATA and KP ASTROLOGY KNOWLEDGE
+            48. **STRICT GROUNDING (NON-NEGOTIABLE):** Sirf "INTERNAL REFERENCE DATA" (chart data) aur "KP ASTROLOGY KNOWLEDGE" (docs) ka hi upyog karein. Agar context me jo baat NAHI hai, to seedha kahe: "Is vishay par pakki jaankari uplabdh nahi hai." Koi bhi fact invent NA karein.
             49. **CURRENT YEAR AWARENESS:** We are currently in 2025. ALL predictions must be for FUTURE years (2025 onwards)
             50. **AGE/LOGIC OVERRIDE:** For any prediction, the Prediction Year MUST be GREATER THAN or EQUAL TO the Earliest Realistic Year ({earliest_realistic_year})
             51. **MARRIAGE AGE VALIDATION:** For marriage predictions, the person must be at least 21 years old. For birth year {birth_year}, the earliest possible marriage year is {earliest_marriage_year}
@@ -1589,8 +1515,8 @@ class EnhancedAstroBotAPI:
             try:
                 response = openai.chat.completions.create(
                     model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": system_prompt + "\n\nRespond in 3–5 short bullet points, max ~120 words. Avoid physical feature claims unless explicitly asked. Be crisp."}],
-                    temperature=0.7,
+                    messages=[{"role": "user", "content": system_prompt + "\n\nRespond in 3–5 short bullet points, max ~120 words. If information is missing from INTERNAL REFERENCE DATA or KP docs, say it is not available. Avoid physical feature claims unless explicitly asked. Be crisp."}],
+                    temperature=0.2,
                     max_tokens=260,
                     frequency_penalty=0.4,
                     presence_penalty=0.2,
@@ -1623,8 +1549,11 @@ class EnhancedAstroBotAPI:
         if chart_data and self.vector_store and OPENAI_API_KEY:
             return self.get_rag_response(user_message, chart_data)
         else:
-            # Fallback to basic astrology responses
-            return self._get_basic_response(user_message)
+            # No generic fallbacks – require chart/KB for authenticity
+            if not chart_data:
+                return "Authentic uttar ke liye janm ke vivran (DOB, time, place) ya horary number (1–249) avashyak hai. Kripya ye jaankari dein."
+            if not (self.vector_store and OPENAI_API_KEY):
+                return "Authentic uttar ke liye knowledge base/AI uplabdh nahi hai. Kripya thodi der baad try karein."
     
     def _get_basic_response(self, user_message):
         """Basic astrology response when RAG is not available"""
