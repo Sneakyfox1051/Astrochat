@@ -61,21 +61,35 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
     if (!text) return '';
     let cleaned = String(text).replace(/\s+$/,'').replace(/^\s+/,'');
     const lines = cleaned.split('\n');
+
+    // Identify remedy block lines we must always keep
+    const mustKeepIdx = new Set();
+    for (let i = 0; i < lines.length; i++) {
+      const ln = lines[i];
+      if (/^\s*1\.\s+/.test(ln)) mustKeepIdx.add(i);
+      if (/^\s*2\.\s+/.test(ln)) mustKeepIdx.add(i);
+      if (/^\s*Activation:\s*/i.test(ln)) mustKeepIdx.add(i);
+      if (/^\s*Main aapko sirf trusted AstroRemedis remedies suggest/i.test(ln)) mustKeepIdx.add(i);
+    }
+
     let bulletCount = 0;
     const kept = [];
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const isBullet = /^\s*(?:[-•\u2022]|\d+\.)\s+/.test(line);
-      if (isBullet) {
+      if (isBullet && !mustKeepIdx.has(i)) {
         bulletCount += 1;
         if (bulletCount > 5) continue;
       }
       kept.push(line);
     }
+
     cleaned = kept.join('\n');
-    // Soft cap overall length for UI
+    // Soft cap overall length for UI, but try to preserve remedy block by increasing budget slightly
     const words = cleaned.split(/\s+/);
-    if (words.length > 130) {
-      cleaned = words.slice(0, 130).join(' ') + '…';
+    const wordLimit = 160; // was 130
+    if (words.length > wordLimit) {
+      cleaned = words.slice(0, wordLimit).join(' ') + '…';
     }
     return cleaned;
   };
