@@ -81,6 +81,53 @@ def sanitize_ai_text(text: str) -> str:
     except Exception:
         return text
 
+# Identity consistency enforcer to keep Lagna/Chandra Rashi/Mahadasha stable and avoid repetition
+def enforce_identity_consistency(text: str, profile: dict = None, suppress_identities: bool = False) -> str:
+    """
+    - If profile contains exact `lagna`, `chandra_rashi`, `mahadasha`, normalize any mentions to these exact values.
+    - If suppress_identities is True, remove repeated Lagna/Rashi/Dasha lines from subsequent replies.
+    """
+    if not text:
+        return text
+    try:
+        import re
+        t = text.replace("\r\n", "\n").replace("\r", "\n")
+
+        if profile:
+            def sub_identity(label, value):
+                if not value:
+                    return
+                if label == 'lagna':
+                    patterns = [r"(?im)^(?:lagna|ascendant)\s*[:\-]\s*.+$"]
+                    replacement = f"Lagna {value}"
+                elif label == 'chandra_rashi':
+                    patterns = [r"(?im)^(?:chandra\s*rashi|moon\s*sign|moonsign)\s*[:\-]\s*.+$"]
+                    replacement = f"Chandra Rashi {value}"
+                elif label == 'mahadasha':
+                    patterns = [r"(?im)^(?:maha\s*dasha|mahadasha|current\s*dasha)\s*[:\-]\s*.+$"]
+                    replacement = f"Mahadasha {value}"
+                else:
+                    return
+                for pat in patterns:
+                    t = re.sub(pat, replacement, t)
+
+            sub_identity('lagna', profile.get('lagna'))
+            sub_identity('chandra_rashi', profile.get('chandra_rashi'))
+            sub_identity('mahadasha', profile.get('mahadasha'))
+
+        if suppress_identities:
+            lines = t.split("\n")
+            kept = []
+            for line in lines:
+                if re.search(r"(?i)\b(lagna|ascendant|chandra\s*rashi|moon\s*sign|maha\s*dasha|mahadasha)\b", line):
+                    continue
+                kept.append(line)
+            t = "\n".join(kept)
+
+        return t
+    except Exception:
+        return text
+
 # LangChain imports - Optional for RAG functionality
 try:
     from langchain_community.document_loaders import Docx2txtLoader
@@ -1663,6 +1710,8 @@ def chat():
         data = request.get_json()
         user_message = data.get('message', '').strip()
         chart_data = data.get('chart_data')  # Optional chart data for context
+        client_profile = data.get('client_profile') or {}
+        suppress_identities = bool(client_profile.get('introduced_core_facts'))
         
         if not user_message:
             return jsonify({
@@ -1677,6 +1726,17 @@ def chat():
         else:
             # Generate AI response using RAG if chart data available
             ai_response = astro_api.generate_ai_response(user_message, chart_data)
+
+        # Enforce stable identities and suppress repeats after first reply
+        ai_response = enforce_identity_consistency(
+            ai_response,
+            {
+                'lagna': client_profile.get('lagna'),
+                'chandra_rashi': client_profile.get('chandra_rashi'),
+                'mahadasha': client_profile.get('mahadasha')
+            },
+            suppress_identities=suppress_identities
+        )
         
         return jsonify({
             "response": ai_response,

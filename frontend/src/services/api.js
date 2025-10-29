@@ -16,7 +16,7 @@ class AstroBotAPI {
    * @param {Object} chartData - Optional chart data (for context)
    * @returns {Promise<Object>} API response
    */
-  async sendChatMessage(message, chartData = null) {
+  async sendChatMessage(message, chartData = null, clientProfile = null) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 40000);
@@ -27,7 +27,8 @@ class AstroBotAPI {
         },
         body: JSON.stringify({
           message: message,
-          chart_data: chartData
+          chart_data: chartData,
+          client_profile: clientProfile
         }),
         signal: controller.signal
       });

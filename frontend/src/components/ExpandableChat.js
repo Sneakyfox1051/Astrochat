@@ -48,6 +48,14 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
   const [isBotTyping, setIsBotTyping] = useState(false);
   // Ensure chart is generated only once per chat session
 
+  // Session profile to keep identities consistent and avoid repetition after first reply
+  const [sessionProfile, setSessionProfile] = useState({
+    lagna: null,
+    chandra_rashi: null,
+    mahadasha: null,
+    introduced_core_facts: false
+  });
+
   // Cap verbose AI replies and keep only the first 3–5 bullets
   const limitAndCleanResponse = (text) => {
     if (!text) return '';
@@ -220,6 +228,16 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     } catch (e) {
       // ignore scroll errors
+    }
+    // Initialize session profile from chart context once available
+    const ctx = kundliData || chartData;
+    if (ctx && !(sessionProfile.lagna || sessionProfile.chandra_rashi || sessionProfile.mahadasha)) {
+      const lagna = ctx.lagna || ctx.ascendant || null;
+      const chandra = ctx.chandra_rashi || ctx.moon_sign || null;
+      const dasha = ctx.current_mahadasha || ctx.mahadasha || null;
+      if (lagna || chandra || dasha) {
+        setSessionProfile((p) => ({ ...p, lagna, chandra_rashi: chandra, mahadasha: dasha }));
+      }
     }
   }, [messages, isGeneratingKundli, isGeneratingChart, chartData]);
 
@@ -599,12 +617,35 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             // For horary mode, provide complete answers based on horary analysis
             botText = await generateHoraryResponse(currentInput, userProfile);
           } else {
-            // Regular chat with chart context; prefer Kundli data (has name and rich context)
-            const chartContext = kundliData || chartData || null;
-            const response = await astroBotAPI.sendChatMessage(currentInput, chartContext);
+          // Regular chat with chart context; prefer Kundli data (has name and rich context)
+          const chartContext = kundliData || chartData || null;
+          const response = await astroBotAPI.sendChatMessage(
+            currentInput,
+            chartContext,
+            {
+              lagna: sessionProfile.lagna,
+              chandra_rashi: sessionProfile.chandra_rashi,
+              mahadasha: sessionProfile.mahadasha,
+              introduced_core_facts: sessionProfile.introduced_core_facts
+            }
+          );
             botText = response.response;
           }
           setCurrentStep('chatting');
+
+          // After first bot reply, capture identities if present and mark introduced to suppress repeats later
+          if (!sessionProfile.introduced_core_facts) {
+            const textSample = botText || '';
+            const lagnaMatch = textSample.match(/(?:Lagna|Ascendant)\s+([A-Za-z]+)/i);
+            const chMatch = textSample.match(/(?:Chandra\s*Rashi|Moon\s*sign|Moonsign)\s+([A-Za-z]+)/i);
+            const mdMatch = textSample.match(/(?:Mahadasha|Maha\s*Dasha|Current\s*Dasha)\s+([A-Za-z]+)/i);
+            setSessionProfile((p) => ({
+              lagna: p.lagna || (lagnaMatch ? lagnaMatch[1] : null),
+              chandra_rashi: p.chandra_rashi || (chMatch ? chMatch[1] : null),
+              mahadasha: p.mahadasha || (mdMatch ? mdMatch[1] : null),
+              introduced_core_facts: true
+            }));
+          }
         } else if (currentStep === 'generating') {
           botText = "Chart generate ho raha hai, kripya wait karein...";
         }
