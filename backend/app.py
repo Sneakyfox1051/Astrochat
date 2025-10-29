@@ -86,6 +86,7 @@ def enforce_identity_consistency(text: str, profile: dict = None, suppress_ident
     """
     - If profile contains exact `lagna`, `chandra_rashi`, `mahadasha`, normalize any mentions to these exact values.
     - If suppress_identities is True, remove repeated Lagna/Rashi/Dasha lines from subsequent replies.
+    - Scrub generic remedies (e.g., "Saturday tel daan") unless they match the observed planet context.
     """
     if not text:
         return text
@@ -126,6 +127,14 @@ def enforce_identity_consistency(text: str, profile: dict = None, suppress_ident
 
         # Remove redundant phrasing like "Moonsign" duplicates
         t = re.sub(r"(?i)\bmoonsign\b", "Moon sign", t)
+
+        # Scrub generic remedies when planet mismatch is likely
+        # If profile has planet data but text includes generic "Saturday tel daan" – remove that specific line
+        if profile and profile.get('mahadasha'):
+            # If mahadasha is NOT Shani but text has "Saturday tel daan", remove it
+            maha_val = profile.get('mahadasha', '').lower()
+            if 'shani' not in maha_val and 'shaniv' not in maha_val:
+                t = re.sub(r"(?i)(saturday ko|shanivar ko).*?tel daan.*?\n", "", t, flags=re.MULTILINE)
 
         if suppress_identities:
             lines = t.split("\n")
@@ -450,8 +459,8 @@ def generate_kp_horary_analysis(horary_number):
         else:
             analysis = f"Namaskar, main aapka AstroRemedis ka AI Astrologer hoon. Horary number {horary_number} ke hisab se aapka kaam {timeframe} banne ke yog hain."
         
-        # Add remedy suggestion with benefit phrasing
-        remedy = "Shani prabhav me hai, Shanivar ko tel daan karna shubh rahega. AstroRemedis ka Maruti Yantra Kachhua apne ghar me rakhen — ye aapke liye laabhdayak hoga aur grah shanti me sahayak rahega."
+        # NO FIXED REMEDY – Only use if KB/observation provides one
+        remedy = ""
         blessing = "Bhagwan aap par apna aashirwad sadaiv banaaye rakhen."
         
         return {
@@ -1509,6 +1518,7 @@ class EnhancedAstroBotAPI:
             **MOLE PREDICTION DATA:** {mole_prediction}
             
             **LAL KITAB OBSERVATION DATA:** {json.dumps(lal_kitab_observation, ensure_ascii=False) if lal_kitab_observation else "None"}
+            IF lal_kitab_observation provides 'remedy' AND 'planet', you MUST use that EXACT remedy string and NO OTHER. This is mandatory.
             
             **CHAMATKARI TIPS DATA:** {json.dumps(chamatkari_tips, ensure_ascii=False) if chamatkari_tips else "None"}
             
