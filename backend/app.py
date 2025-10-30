@@ -686,8 +686,9 @@ def generate_remedies(user_query, chart_data, compact=False):
 
 
 def should_append_remedies(user_query: str) -> bool:
-    """Return True only when the user expresses a problem/pain, not generic inquiries.
-    Ensures remedies are not added for neutral questions like "career ke bare mein bataiye".
+    """Return True when the user expresses a problem/pain OR asks for a goal-oriented area
+    (career, marriage, love, health, finance, property, litigation, child).
+    Previously we avoided neutral questions; now we include compact remedies for topical intents too.
     """
     if not user_query:
         return False
@@ -699,7 +700,16 @@ def should_append_remedies(user_query: str) -> bool:
         'job nahi', 'promotion nahi', 'marriage delay', 'santan nahi',
         'tension', 'worried', 'concerned', 'anxiety', 'stress', 'chinta', 'fikar'
     ]
-    return any(marker in q for marker in problem_markers)
+    topical_markers = [
+        'career', 'job', 'naukri', 'business', 'rozi', 'work', 'profession',
+        'marriage', 'shadi', 'vivah', 'love', 'pyaar', 'relationship',
+        'health', 'swasthya',
+        'finance', 'money', 'wealth', 'prosperity', 'paise', 'dhan',
+        'property', 'home', 'land', 'dispute',
+        'court case', 'litigation', 'case',
+        'child', 'santan', 'baby', 'family growth'
+    ]
+    return any(m in q for m in problem_markers) or any(m in q for m in topical_markers)
 
 class EnhancedAstroBotAPI:
     """Enhanced API class with RAG and advanced astrology features"""
