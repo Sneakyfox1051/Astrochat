@@ -913,7 +913,11 @@ class EnhancedAstroBotAPI:
         try:
             resp = requests.get(adv_url, headers=headers, params=params, timeout=20)
             resp.raise_for_status()
-            data = resp.json().get('data', {})
+            raw = resp.json()
+            data = raw.get('data', {}) if isinstance(raw, dict) else {}
+            # Normalize unexpected list payloads into expected dict shape
+            if isinstance(data, list):
+                data = { 'planet_position': { 'planet_position': data } }
         except Exception as e:
             logger.error(f"Error fetching Advanced Kundli: {e}; falling back to mock chart data")
             return self._generate_mock_chart_data(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
