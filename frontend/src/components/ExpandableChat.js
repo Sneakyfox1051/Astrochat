@@ -390,10 +390,27 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         place: userProfile.place,
         timezone: userProfile.timezone
       };
-      // CHART FIRST: Generate and show visual chart as fast as possible
-      const chartResponse = await astroBotAPI.generateChart(birthDetails);
-      const chartPayload = chartResponse && chartResponse.chart_data ? chartResponse.chart_data : null;
-      if (chartResponse.success && chartPayload) {
+      // 1) Generate Kundli first (advanced JSON + visual_chart)
+      const kundliResponse = await astroBotAPI.generateKundli(birthDetails);
+
+      if (!kundliResponse.success || !kundliResponse.chart_data) {
+        throw new Error(kundliResponse.error || 'Kundli generation failed');
+      }
+
+      setKundliData(kundliResponse.chart_data);
+
+      // Add Kundli generation success message with warm greeting and remedy promise
+      const successMessage = {
+        id: nextMessageId(),
+        text: `🎉 Bahut badhiya ${userProfile.name} ji! Aapka Kundli taiyar ho gaya hai. Ab main visual chart generate kar raha hun...`,
+        sender: 'pandit',
+        timestamp: new Date().toLocaleTimeString()
+      };
+      setMessages(prev => [...prev, successMessage]);
+
+      // 2) Prefer visual chart returned from /api/kundli to avoid a second network call
+      const chartPayload = kundliResponse.visual_chart || null;
+      if (chartPayload && (chartPayload.svg_content || chartPayload.format)) {
         // Wait for remaining time to meet minimum delay
         const elapsed = Date.now() - genStartTs;
         const remaining = Math.max(0, minDelayMs - elapsed);
@@ -418,17 +435,32 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
           }];
         });
       } else {
-        throw new Error(chartResponse.error || 'Chart generation failed');
-      }
-
-      // Then, in background, fetch Kundli JSON (advanced) and store for chat
-      try {
-        const kundliResponse = await astroBotAPI.generateKundli(birthDetails);
-        if (kundliResponse.success && kundliResponse.chart_data) {
-          setKundliData(kundliResponse.chart_data);
+        // Fallback: if kundli didn’t return visual_chart, call chart endpoint
+        const chartResponse = await astroBotAPI.generateChart(birthDetails);
+        if (chartResponse.success && chartResponse.chart_data) {
+          const elapsed = Date.now() - genStartTs;
+          const remaining = Math.max(0, minDelayMs - elapsed);
+          if (remaining > 0) {
+            await new Promise(res => setTimeout(res, remaining));
+          }
+          setChartData(chartResponse.chart_data);
+          setIsGeneratingChart(false);
+          setCurrentStep('chart_generated');
+          hasGeneratedRef.current = true;
+          setMessages(prev => {
+            const alreadyHasChart = prev.some(m => m.type === 'chart');
+            if (alreadyHasChart) return prev;
+            return [...prev, {
+              id: nextMessageId(),
+              sender: 'pandit',
+              type: 'chart',
+              chartData: chartResponse.chart_data,
+              timestamp: new Date().toLocaleTimeString()
+            }];
+          });
+        } else {
+          throw new Error(chartResponse.error || 'Chart generation failed');
         }
-      } catch (e) {
-        console.error('Background Kundli fetch failed:', e);
       }
     } catch (error) {
       console.error('Error generating Kundli:', error);
