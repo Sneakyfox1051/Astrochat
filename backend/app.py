@@ -952,12 +952,14 @@ class EnhancedAstroBotAPI:
         final_chart_data = {
             "name": name,
             "dob_date": dob_date.strftime('%Y-%m-%d'),
+            "tob_time_str": tob_time.strftime('%H:%M:%S'),
             "ascendant_sign": ascendant_sign or 1,
             "ascendant_sign_name": ascendant_sign_name,
             "planets": planets_in_house,
             "birth_location": pob_text,
             "coordinates": {"latitude": latitude, "longitude": longitude},
             "timezone": timezone_str,
+            "place": pob_text,
             "dasha_periods": dasha_periods,
             "current_mahadasha": current_mahadasha,
             "mangal_dosha": {
@@ -1641,8 +1643,30 @@ def chat():
             user_name = chart_data.get('name', 'User')
             ai_response = generate_horary_response(user_message, user_name)
         else:
-            # Generate AI response using RAG if chart data available
-            ai_response = astro_api.generate_ai_response(user_message, chart_data)
+            # Prefer detailed Kundli data; if only chart or missing positions, try to refresh
+            enriched = chart_data or {}
+            positions = (enriched.get('prokerala_data') or {}).get('planet_positions')
+            has_positions = bool(positions)
+            has_houses = bool(enriched.get('planets'))
+            if not (has_positions and has_houses):
+                try:
+                    name = enriched.get('name') or 'User'
+                    dob_str = enriched.get('dob_date')
+                    tob_str = enriched.get('tob_time_str')
+                    place = enriched.get('birth_location') or enriched.get('place') or ''
+                    tz = enriched.get('timezone') or 'Asia/Kolkata'
+                    coords = enriched.get('coordinates') or {}
+                    lat = coords.get('latitude')
+                    lon = coords.get('longitude')
+                    if dob_str and tob_str and place and (lat is not None) and (lon is not None):
+                        dob_date = datetime.strptime(dob_str, '%Y-%m-%d').date()
+                        tob_time = datetime.strptime(tob_str, '%H:%M:%S').time()
+                        # Attempt refresh via advanced Kundli
+                        enriched = astro_api.calculate_chart_data(name, dob_date, tob_time, place, lat, lon, tz) or enriched
+                except Exception as _e:
+                    pass
+
+            ai_response = astro_api.generate_ai_response(user_message, enriched)
 
         # Enforce stable identities and suppress repeats after first reply
         ai_response = enforce_identity_consistency(
