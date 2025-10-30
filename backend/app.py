@@ -912,12 +912,27 @@ class EnhancedAstroBotAPI:
 
         try:
             resp = requests.get(adv_url, headers=headers, params=params, timeout=20)
+            # ✨ RECOMMENDED FIX ✨
             resp.raise_for_status()
             raw = resp.json()
-            data = raw.get('data', {}) if isinstance(raw, dict) else {}
-            # Normalize unexpected list payloads into expected dict shape
+            
+            # --- START FIX ---
+            # 1. Ensure 'raw' is a dict before attempting 'get'
+            if not isinstance(raw, dict):
+                # If raw is a list (unexpected API response format), wrap it 
+                # or handle as a fatal error, but for safety:
+                logger.warning("ProKerala raw response was not a dictionary, assuming it's the data payload.")
+                raw = {'data': raw}
+                
+            # 2. Safely get the 'data' payload, defaulting to an empty dict
+            data = raw.get('data', {}) 
+
+            # 3. If 'data' is still a list (e.g., raw was a dict but 'data' field 
+            #    contained the unexpected list payload), wrap the list correctly.
             if isinstance(data, list):
-                data = { 'planet_position': { 'planet_position': data } }
+                logger.warning("ProKerala 'data' field was a list, normalizing into expected dict structure.")
+                data = { 'planet_position': { 'planet_position': data } } 
+            # --- END FIX ---
         except Exception as e:
             logger.error(f"Error fetching Advanced Kundli: {e}; falling back to mock chart data")
             return self._generate_mock_chart_data(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
