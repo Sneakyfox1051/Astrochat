@@ -891,127 +891,71 @@ class EnhancedAstroBotAPI:
             return None
 
         headers = {"Authorization": f"Bearer {access_token}"}
-        base_url = "https://api.prokerala.com/v2/astrology"
-        
-        common_params = {
-            'ayanamsa': 5,  # KP Astrology (Krishnamurti Paddhati)
+        adv_url = "https://api.prokerala.com/v2/astrology/kundli/advanced"
+        params = {
+            'ayanamsa': 5,
             'coordinates': f"{latitude},{longitude}",
-            'datetime': api_datetime_str,
-            'chart_style': 'north-indian'  # North Indian chart style
+            'datetime': api_datetime_str
         }
-        
-        # Initialize data containers
-        api_data = {
-            'planet_positions': [],
-            'mangal_dosha': {},
-            'dasha_periods': {},
-            'raw_chart_svg': None,
-            'kundli': {}, # Kept for backward compatibility but focusing on planet-position/mangal-dosha
-        }
-        
-        # --- 1. Fetch Planet Positions (CORE) ---
-        try:
-            planets_url = f"{base_url}/planet-position"
-            planets_response = requests.get(planets_url, headers=headers, params=common_params)
-            planets_response.raise_for_status()
-            api_data['planet_positions'] = planets_response.json().get('data', {}).get('planet_position', [])
-            logger.info("✅ Planet Positions fetched successfully")
-        except Exception as e:
-            logger.error(f"Error fetching Planet Positions: {e}")
-            return None # Cannot proceed without planet positions
 
-        # --- 2. Fetch Mangal Dosha ---
         try:
-            # Using the /mangal-dosha endpoint from the Streamlit logic's use case
-            mangal_dosha_url = f"{base_url}/mangal-dosha"
-            mangal_dosha_response = requests.get(mangal_dosha_url, headers=headers, params=common_params)
-            mangal_dosha_response.raise_for_status()
-            api_data['mangal_dosha'] = mangal_dosha_response.json().get('data', {})
-            logger.info("✅ Mangal Dosha fetched successfully")
+            resp = requests.get(adv_url, headers=headers, params=params, timeout=20)
+            resp.raise_for_status()
+            data = resp.json().get('data', {})
         except Exception as e:
-            logger.error(f"Error fetching Mangal Dosha: {e}")
-            api_data['mangal_dosha'] = {}
+            logger.error(f"Error fetching Advanced Kundli: {e}")
+            return None
 
-        # --- 3. Fetch Dasha Periods (For AI timing logic) ---
-        try:
-            dasha_url = f"{base_url}/dasha"
-            dasha_response = requests.get(dasha_url, headers=headers, params=common_params)
-            dasha_response.raise_for_status()
-            api_data['dasha_periods'] = dasha_response.json().get('data', {})
-            logger.info("✅ Dasha Periods fetched successfully")
-        except Exception as e:
-            logger.error(f"Error fetching Dasha Periods: {e}")
-            api_data['dasha_periods'] = {}
-        
-        # --- 4. Process Planet Data for House Positions (EXACT STREAMLIT LOGIC) ---
+        planet_positions = data.get('planet_position', {}).get('planet_position', [])
+        dasha_periods = data.get('dasha', {})
+        mangal_dosha = data.get('mangal_dosha', {})
+
         planets_in_house = {}
         ascendant_sign = None
         ascendant_sign_name = "N/A"
-        # Using the exact map from the Streamlit code
         planet_code_map = {'Sun': 'Su', 'Moon': 'Mo', 'Mars': 'Ma', 'Mercury': 'Me', 'Jupiter': 'Ju', 'Venus': 'Ve', 'Saturn': 'Sa', 'Rahu': 'Ra', 'Ketu': 'Ke', 'Lagna': 'La'}
 
-        if api_data['planet_positions']:
-            # Find Lagna planet (ID 100)
-            lagna_planet = next((p for p in api_data['planet_positions'] if p.get('id') == 100 or p.get('name') == 'Lagna'), None)
-            
-            if lagna_planet:
-                ascendant_sign = lagna_planet.get('rasi', {}).get('id')
-                ascendant_sign_name = lagna_planet.get('rasi', {}).get('name')
-                
-            if ascendant_sign is not None and ascendant_sign > 0:
-                for planet in api_data['planet_positions']:
-                    rasi_id = planet.get('rasi', {}).get('id')
-                    planet_name = planet.get('name')
-                    
-                    if rasi_id is not None and planet_name and rasi_id != 0:
-                        # CRITICAL: House calculation matching the Streamlit logic:
-                        # House_num = (Rasi_ID of Planet - Rasi_ID of Lagna + 12) % 12 + 1 
-                        house_num = (rasi_id - ascendant_sign + 12) % 12 + 1 
-                        
-                        planet_code = planet_code_map.get(planet_name, planet_name[:2])
-                        
-                        if house_num not in planets_in_house:
-                            planets_in_house[house_num] = []
-                        if planet_code and planet_code not in planets_in_house[house_num]:
-                            planets_in_house[house_num].append(planet_code)
-            
-            # Populate houses without planets to ensure a 12-house structure for the AI
-            for i in range(1, 13):
-                if i not in planets_in_house:
-                    planets_in_house[i] = []
-        
-        # --- 5. Final CHART_DATA Structure ---
+        lagna_planet = next((p for p in planet_positions if p.get('id') == 100 or p.get('name') == 'Lagna'), None)
+        if lagna_planet:
+            ascendant_sign = lagna_planet.get('rasi', {}).get('id')
+            ascendant_sign_name = lagna_planet.get('rasi', {}).get('name')
+
+        if ascendant_sign:
+            for p in planet_positions:
+                rasi_id = p.get('rasi', {}).get('id')
+                pname = p.get('name')
+                if rasi_id is None or not pname or rasi_id == 0:
+                    continue
+                house_num = (rasi_id - ascendant_sign + 12) % 12 + 1
+                code = planet_code_map.get(pname, pname[:2])
+                planets_in_house.setdefault(house_num, [])
+                if code and code not in planets_in_house[house_num]:
+                    planets_in_house[house_num].append(code)
+
+        for i in range(1, 13):
+            planets_in_house.setdefault(i, [])
+
+        current_mahadasha = dasha_periods.get('mahadasha', {}).get('lord', 'Unknown')
+
         final_chart_data = {
             "name": name,
-            "dob_date": dob_date.strftime('%Y-%m-%d'), # Add DOB as string for AI logic
+            "dob_date": dob_date.strftime('%Y-%m-%d'),
             "ascendant_sign": ascendant_sign or 1,
             "ascendant_sign_name": ascendant_sign_name,
-            "planets": planets_in_house, # CRITICAL: This is the correctly mapped House: [Planets] list
+            "planets": planets_in_house,
             "birth_location": pob_text,
-            "coordinates": {
-                "latitude": latitude,
-                "longitude": longitude
-            },
+            "coordinates": {"latitude": latitude, "longitude": longitude},
             "timezone": timezone_str,
-            
-            # ProKerala API Data (consolidated/streamlined)
-            "prokerala_data": {
-                "planet_positions": api_data['planet_positions'],
-            },
-            
-            # Primary analysis fields
+            "dasha_periods": dasha_periods,
+            "current_mahadasha": current_mahadasha,
             "mangal_dosha": {
-                "is_present": api_data['mangal_dosha'].get('is_present', False),
-                "description": api_data['mangal_dosha'].get('description', 'Mangal Dosha analysis completed.')
+                "is_present": mangal_dosha.get('is_present', False),
+                "description": mangal_dosha.get('description', 'Mangal Dosha analysis completed.')
             },
-            "dasha_periods": api_data.get('dasha_periods', {}),
-            
-            # Set defaults for other data points for the AI (kept simplified)
-            "sade_sati": api_data.get('kundli', {}).get('sade_sati', {}),
-            "yoga": api_data.get('kundli', {}).get('yoga_details', []) 
+            "prokerala_data": {"planet_positions": planet_positions},
+            "is_mock_data": False
         }
-        
-        logger.info(f"✅ Comprehensive KP Astrology data processed for {name}")
+        logger.info("✅ Advanced Kundli data processed")
         return final_chart_data
 
     def generate_chart_only(self, name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str):
