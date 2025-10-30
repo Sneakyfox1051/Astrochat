@@ -408,16 +408,16 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
       };
       setMessages(prev => [...prev, successMessage]);
 
-      // 2) Only after Kundli succeeds, generate Chart
-      const chartResponse = await astroBotAPI.generateChart(birthDetails);
-      if (chartResponse.success && chartResponse.chart_data) {
+      // 2) Prefer visual chart returned from /api/kundli to avoid a second network call
+      const chartPayload = kundliResponse.visual_chart || null;
+      if (chartPayload && (chartPayload.svg_content || chartPayload.format)) {
         // Wait for remaining time to meet minimum delay
         const elapsed = Date.now() - genStartTs;
         const remaining = Math.max(0, minDelayMs - elapsed);
         if (remaining > 0) {
           await new Promise(res => setTimeout(res, remaining));
         }
-        setChartData(chartResponse.chart_data);
+        setChartData(chartPayload);
         setIsGeneratingChart(false);
         setCurrentStep('chart_generated');
         hasGeneratedRef.current = true;
@@ -430,12 +430,37 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             id: nextMessageId(),
             sender: 'pandit',
             type: 'chart',
-            chartData: chartResponse.chart_data,
+            chartData: chartPayload,
             timestamp: new Date().toLocaleTimeString()
           }];
         });
       } else {
-        throw new Error(chartResponse.error || 'Chart generation failed');
+        // Fallback: if kundli didn’t return visual_chart, call chart endpoint
+        const chartResponse = await astroBotAPI.generateChart(birthDetails);
+        if (chartResponse.success && chartResponse.chart_data) {
+          const elapsed = Date.now() - genStartTs;
+          const remaining = Math.max(0, minDelayMs - elapsed);
+          if (remaining > 0) {
+            await new Promise(res => setTimeout(res, remaining));
+          }
+          setChartData(chartResponse.chart_data);
+          setIsGeneratingChart(false);
+          setCurrentStep('chart_generated');
+          hasGeneratedRef.current = true;
+          setMessages(prev => {
+            const alreadyHasChart = prev.some(m => m.type === 'chart');
+            if (alreadyHasChart) return prev;
+            return [...prev, {
+              id: nextMessageId(),
+              sender: 'pandit',
+              type: 'chart',
+              chartData: chartResponse.chart_data,
+              timestamp: new Date().toLocaleTimeString()
+            }];
+          });
+        } else {
+          throw new Error(chartResponse.error || 'Chart generation failed');
+        }
       }
     } catch (error) {
       console.error('Error generating Kundli:', error);
