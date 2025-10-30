@@ -918,8 +918,14 @@ class EnhancedAstroBotAPI:
             logger.error(f"Error fetching Advanced Kundli: {e}")
             return None
 
-        planet_positions = data.get('planet_position', {}).get('planet_position', [])
-        dasha_periods = data.get('dasha', {})
+        # Robust extraction: different payloads may vary in key names
+        planet_positions = (
+            (data.get('planet_position') or {}).get('planet_position')
+            or data.get('planet_positions')
+            or data.get('planets')
+            or []
+        )
+        dasha_periods = data.get('dasha', {}) or data.get('dasha_periods', {})
         mangal_dosha = data.get('mangal_dosha', {})
 
         planets_in_house = {}
@@ -946,6 +952,41 @@ class EnhancedAstroBotAPI:
 
         for i in range(1, 13):
             planets_in_house.setdefault(i, [])
+
+        # Fallback: if planet positions are still empty, fetch from planet-position endpoint
+        if not planet_positions:
+            try:
+                pos_url = "https://api.prokerala.com/v2/astrology/planet-position"
+                pos_resp = requests.get(pos_url, headers=headers, params={
+                    'ayanamsa': 5,
+                    'coordinates': f"{latitude},{longitude}",
+                    'datetime': api_datetime_str
+                }, timeout=15)
+                pos_resp.raise_for_status()
+                pos_data = pos_resp.json().get('data', {}).get('planet_position', [])
+                planet_positions = pos_data
+                # Recompute ascendant and houses if missing
+                if planet_positions and not ascendant_sign:
+                    lagna_planet = next((p for p in planet_positions if p.get('id') == 100 or p.get('name') == 'Lagna'), None)
+                    if lagna_planet:
+                        ascendant_sign = lagna_planet.get('rasi', {}).get('id')
+                        ascendant_sign_name = lagna_planet.get('rasi', {}).get('name')
+                if planet_positions and ascendant_sign:
+                    planets_in_house = {}
+                    for p in planet_positions:
+                        rasi_id = p.get('rasi', {}).get('id')
+                        pname = p.get('name')
+                        if rasi_id is None or not pname or rasi_id == 0:
+                            continue
+                        house_num = (rasi_id - ascendant_sign + 12) % 12 + 1
+                        code = planet_code_map.get(pname, pname[:2])
+                        planets_in_house.setdefault(house_num, [])
+                        if code and code not in planets_in_house[house_num]:
+                            planets_in_house[house_num].append(code)
+                    for i in range(1, 13):
+                        planets_in_house.setdefault(i, [])
+            except Exception as _e:
+                logger.warning(f"Fallback planet-position fetch failed: {_e}")
 
         current_mahadasha = dasha_periods.get('mahadasha', {}).get('lord', 'Unknown')
 
