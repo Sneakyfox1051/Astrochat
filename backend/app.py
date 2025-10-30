@@ -915,8 +915,8 @@ class EnhancedAstroBotAPI:
             resp.raise_for_status()
             data = resp.json().get('data', {})
         except Exception as e:
-            logger.error(f"Error fetching Advanced Kundli: {e}")
-            return None
+            logger.error(f"Error fetching Advanced Kundli: {e}; falling back to mock chart data")
+            return self._generate_mock_chart_data(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
 
         # Robust extraction: different payloads may vary in key names
         planet_positions = (
