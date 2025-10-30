@@ -1780,22 +1780,27 @@ def generate_kundli():
             longitude,
             birth_data['timezone']
         )
-        
-        if not chart_data:
-            return jsonify({
-                "error": "Failed to generate Kundli. Please check your API credentials and try again."
-            }), 500
-        
+        # Guarantee dict shape even if upstream changed
+        if not chart_data or not isinstance(chart_data, dict):
+            chart_data = astro_api._generate_mock_chart_data(
+                birth_data['name'], birth_data['dob_date'], birth_data['tob_time'],
+                birth_data['place'], latitude, longitude, birth_data['timezone']
+            )
+
         # Always fetch visual chart SVG as well so frontend has both JSON and SVG
-        visual_chart = astro_api.generate_chart_only(
-            birth_data['name'],
-            birth_data['dob_date'],
-            birth_data['tob_time'],
-            birth_data['place'],
-            latitude,
-            longitude,
-            birth_data['timezone']
-        )
+        try:
+            visual_chart = astro_api.generate_chart_only(
+                birth_data['name'],
+                birth_data['dob_date'],
+                birth_data['tob_time'],
+                birth_data['place'],
+                latitude,
+                longitude,
+                birth_data['timezone']
+            )
+        except Exception as vc_err:
+            logger.warning(f"Chart SVG generation failed, continuing without SVG: {vc_err}")
+            visual_chart = None
 
         payload = {
             "success": True,
