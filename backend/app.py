@@ -1767,7 +1767,18 @@ def generate_kundli():
                 "error": "Failed to generate Kundli. Please check your API credentials and try again."
             }), 500
         
-        return jsonify({
+        # Always fetch visual chart SVG as well so frontend has both JSON and SVG
+        visual_chart = astro_api.generate_chart_only(
+            birth_data['name'],
+            birth_data['dob_date'],
+            birth_data['tob_time'],
+            birth_data['place'],
+            latitude,
+            longitude,
+            birth_data['timezone']
+        )
+
+        payload = {
             "success": True,
             "chart_data": chart_data,
             "parsed_data": {
@@ -1779,7 +1790,10 @@ def generate_kundli():
                 "coordinates": f"{latitude}, {longitude}"
             },
             "timestamp": datetime.now().isoformat()
-        })
+        }
+        if visual_chart:
+            payload["visual_chart"] = visual_chart
+        return jsonify(payload)
         
     except Exception as e:
         logger.error(f"Error in kundli endpoint: {e}")
