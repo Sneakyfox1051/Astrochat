@@ -38,6 +38,24 @@ import logging
 import pytz
 import openai
 from dotenv import load_dotenv
+
+# --- Safe normalizers (module-level helpers) ---
+def _safe_get_positions(data_dict: dict):
+    """Return a list of planet position dicts regardless of provider shape."""
+    try:
+        raw_positions = (
+            (data_dict.get('planet_position') or {}).get('planet_position')
+            or data_dict.get('planet_positions')
+            or data_dict.get('planets')
+            or []
+        )
+        if isinstance(raw_positions, dict):
+            return raw_positions.get('planet_position', [])
+        if isinstance(raw_positions, list):
+            return raw_positions
+        return []
+    except Exception:
+        return []
 from googleapiclient.errors import HttpError
 import random
 
@@ -940,19 +958,8 @@ class EnhancedAstroBotAPI:
             logger.error(f"Error fetching Advanced Kundli: {e}; skipping mock fallback and returning None")
             return None
 
-        # Robust extraction: different payloads may vary in key names and shape (list vs dict)
-        raw_positions = (
-            (data.get('planet_position') or {}).get('planet_position')
-            or data.get('planet_positions')
-            or data.get('planets')
-            or []
-        )
-        if isinstance(raw_positions, dict):
-            planet_positions = raw_positions.get('planet_position', [])
-        elif isinstance(raw_positions, list):
-            planet_positions = raw_positions
-        else:
-            planet_positions = []
+        # Robust extraction: normalize planet positions regardless of provider shape
+        planet_positions = _safe_get_positions(data)
         dasha_periods = data.get('dasha', {}) or data.get('dasha_periods', {})
         mangal_dosha = data.get('mangal_dosha', {})
 
@@ -992,34 +999,32 @@ class EnhancedAstroBotAPI:
             if pos_resp.status_code == 200:
                 pos_raw = pos_resp.json()
                 # Normalize regardless of shape
+                possible = []
                 if isinstance(pos_raw, dict):
-                    possible = pos_raw.get('data', {}).get('planet_position', [])
-                else:
-                    possible = []
-                if isinstance(possible, list):
-                    planet_positions = possible
-                elif isinstance(possible, dict):
-                    planet_positions = possible.get('planet_position', [])
-                    # Recompute ascendant and houses from authoritative planet-position
-                    if planet_positions:
-                        lagna_planet = next((p for p in planet_positions if p.get('id') == 100 or p.get('name') == 'Lagna'), None) or lagna_planet
-                        if lagna_planet:
-                            ascendant_sign = lagna_planet.get('rasi', {}).get('id')
-                            ascendant_sign_name = lagna_planet.get('rasi', {}).get('name')
-                        if ascendant_sign:
-                            planets_in_house = {}
-                            for p in planet_positions:
-                                rasi_id = p.get('rasi', {}).get('id')
-                                pname = p.get('name')
-                                if rasi_id is None or not pname or rasi_id == 0:
-                                    continue
-                                house_num = (rasi_id - ascendant_sign + 12) % 12 + 1
-                                code = planet_code_map.get(pname, pname[:2])
-                                planets_in_house.setdefault(house_num, [])
-                                if code and code not in planets_in_house[house_num]:
-                                    planets_in_house[house_num].append(code)
-                            for i in range(1, 13):
-                                planets_in_house.setdefault(i, [])
+                    data_block = pos_raw.get('data', {}) or {}
+                    if isinstance(data_block, dict):
+                        possible = data_block.get('planet_position', [])
+                planet_positions = possible if isinstance(possible, list) else []
+                # Recompute ascendant and houses from authoritative planet-position
+                if planet_positions:
+                    lagna_planet = next((p for p in planet_positions if p.get('id') == 100 or p.get('name') == 'Lagna'), None) or lagna_planet
+                    if lagna_planet:
+                        ascendant_sign = lagna_planet.get('rasi', {}).get('id')
+                        ascendant_sign_name = lagna_planet.get('rasi', {}).get('name')
+                    if ascendant_sign:
+                        planets_in_house = {}
+                        for p in planet_positions:
+                            rasi_id = p.get('rasi', {}).get('id')
+                            pname = p.get('name')
+                            if rasi_id is None or not pname or rasi_id == 0:
+                                continue
+                            house_num = (rasi_id - ascendant_sign + 12) % 12 + 1
+                            code = planet_code_map.get(pname, pname[:2])
+                            planets_in_house.setdefault(house_num, [])
+                            if code and code not in planets_in_house[house_num]:
+                                planets_in_house[house_num].append(code)
+                        for i in range(1, 13):
+                            planets_in_house.setdefault(i, [])
         except Exception as _e:
             logger.warning(f"planet-position fetch failed: {_e}")
 
@@ -1836,6 +1841,17 @@ def generate_kundli():
         }
         if visual_chart:
             payload["visual_chart"] = visual_chart
+        # Optional concise debug echo (enable with ?debug=1 or header X-Debug: true)
+        try:
+            debug_flag = str((request.args.get('debug') or request.headers.get('X-Debug'))).lower()
+            if debug_flag in ('1', 'true', 'yes'):
+                pp = ((chart_data.get('prokerala_data') or {}).get('planet_positions'))
+                payload['debug'] = {
+                    'pp_count': (len(pp) if isinstance(pp, list) else 0),
+                    'chart_keys': list(chart_data.keys())
+                }
+        except Exception:
+            pass
         return jsonify(payload)
         
     except Exception as e:
