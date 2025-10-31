@@ -101,6 +101,24 @@ def fetch_kundli_advanced(token: str, coords: str, iso_datetime: str) -> dict:
     }
     return out
 
+def fetch_planet_positions(token: str, coords: str, iso_datetime: str) -> dict:
+    url = "https://api.prokerala.com/v2/astrology/planet-position"
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {"ayanamsa": 5, "coordinates": coords, "datetime": iso_datetime}
+    resp = requests.get(url, headers=headers, params=params, timeout=30)
+    resp.raise_for_status()
+    raw = resp.json()
+    if not isinstance(raw, dict):
+        raw = {"data": raw}
+    data = raw.get("data", {})
+    positions = data.get("planet_position", [])
+    return {
+        "raw_keys": list(raw.keys()),
+        "data_keys": list(data.keys()) if isinstance(data, dict) else str(type(data)),
+        "planet_positions_count": len(positions) if isinstance(positions, list) else 0,
+        "sample_positions": positions[:5] if isinstance(positions, list) else []
+    }
+
 
 def main():
     parser = argparse.ArgumentParser(description="ProKerala Kundli Advanced Fetch Debugger")
@@ -137,11 +155,15 @@ def main():
         coords = f"{lat},{lon}"
 
         result = fetch_kundli_advanced(token, coords, iso)
+        pp = fetch_planet_positions(token, coords, iso)
         print(json.dumps({
             "ok": True,
             "coords": coords,
             "datetime": iso,
-            "result": result
+            "result": {
+                "advanced": result,
+                "planet_position": pp
+            }
         }, indent=2, ensure_ascii=False))
     except Exception as e:
         print(json.dumps({"ok": False, "stage": "advanced", "error": str(e)}, indent=2, ensure_ascii=False))
