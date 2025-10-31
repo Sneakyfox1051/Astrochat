@@ -104,7 +104,7 @@ def fetch_kundli_advanced(token: str, coords: str, iso_datetime: str) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="ProKerala Kundli Advanced Fetch Debugger")
-    parser.add_argument('--name', required=True, help='Full name')
+    parser.add_argument('--name', required=False, default='Adab Bawa', help='Full name (default: Adab Bawa)')
     parser.add_argument('--dob', required=True, help='YYYY-MM-DD')
     parser.add_argument('--tob', required=True, help='HH:MM or HH:MM:SS')
     parser.add_argument('--place', required=True, help='Birth place (for display only)')
