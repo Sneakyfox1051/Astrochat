@@ -28,6 +28,7 @@ from datetime import datetime
 import requests
 import pytz
 from dotenv import load_dotenv
+from pathlib import Path
 
 
 def load_env():
@@ -119,6 +120,53 @@ def fetch_planet_positions(token: str, coords: str, iso_datetime: str) -> dict:
         "sample_positions": positions[:5] if isinstance(positions, list) else []
     }
 
+def fetch_chart_svg(token: str, coords: str, iso_datetime: str) -> dict:
+    """Fetch chart SVG from ProKerala and save to a file. Returns file paths."""
+    base = "https://api.prokerala.com/v2/astrology/chart"
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {
+        "ayanamsa": 5,
+        "coordinates": coords,
+        "datetime": iso_datetime,
+        "chart_type": "rasi",
+        "chart_style": "north-indian",
+        "format": "svg",
+    }
+    resp = requests.get(base, headers=headers, params=params, timeout=30)
+    resp.raise_for_status()
+    content_type = resp.headers.get("content-type", "")
+    is_svg = "svg" in content_type.lower()
+    out_dir = Path(__file__).parent / "charts"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    svg_path = None
+    png_path = None
+    if is_svg:
+        svg_path = out_dir / "chart_sample.svg"
+        svg_path.write_text(resp.text, encoding="utf-8")
+        # Try optional PNG conversion if cairosvg is available
+        try:
+            import cairosvg  # type: ignore
+            png_path = out_dir / "chart_sample.png"
+            cairosvg.svg2png(bytestring=resp.text.encode("utf-8"), write_to=str(png_path))
+        except Exception:
+            # PNG conversion not critical; ignore if library missing
+            pass
+        return {
+            "status": resp.status_code,
+            "content_type": content_type,
+            "svg_file": str(svg_path) if svg_path else None,
+            "png_file": str(png_path) if png_path else None,
+        }
+    else:
+        # Save raw text as fallback for inspection
+        raw_path = out_dir / "chart_response.txt"
+        raw_path.write_text(resp.text or "", encoding="utf-8")
+        return {
+            "status": resp.status_code,
+            "content_type": content_type,
+            "raw_file": str(raw_path),
+        }
+
 
 def main():
     parser = argparse.ArgumentParser(description="ProKerala Kundli Advanced Fetch Debugger")
@@ -156,13 +204,15 @@ def main():
 
         result = fetch_kundli_advanced(token, coords, iso)
         pp = fetch_planet_positions(token, coords, iso)
+        chart_files = fetch_chart_svg(token, coords, iso)
         print(json.dumps({
             "ok": True,
             "coords": coords,
             "datetime": iso,
             "result": {
                 "advanced": result,
-                "planet_position": pp
+                "planet_position": pp,
+                "chart": chart_files
             }
         }, indent=2, ensure_ascii=False))
     except Exception as e:
