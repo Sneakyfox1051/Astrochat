@@ -885,9 +885,11 @@ class EnhancedAstroBotAPI:
         """
         access_token = self.get_access_token()
         if not access_token:
-            # Return mock data for testing when API credentials are not available
-            logger.warning("ProKerala API credentials not available, returning mock data")
-            return self._generate_mock_chart_data(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+            # Mock fallback disabled by request — return None to signal failure
+            # logger.warning("ProKerala API credentials not available, returning mock data")
+            # return self._generate_mock_chart_data(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+            logger.error("ProKerala API credentials not available; skipping mock fallback and returning None")
+            return None
 
         try:
             # Create localized datetime
@@ -934,8 +936,9 @@ class EnhancedAstroBotAPI:
                 data = { 'planet_position': { 'planet_position': data } } 
             # --- END FIX ---
         except Exception as e:
-            logger.error(f"Error fetching Advanced Kundli: {e}; falling back to mock chart data")
-            return self._generate_mock_chart_data(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+            # Mock fallback disabled — return None
+            logger.error(f"Error fetching Advanced Kundli: {e}; skipping mock fallback and returning None")
+            return None
 
         # Robust extraction: different payloads may vary in key names
         planet_positions = (
@@ -1043,8 +1046,9 @@ class EnhancedAstroBotAPI:
             # Try to get a fresh token
             access_token = self.get_access_token()
             if not access_token:
-                logger.error("Still no access token available, returning mock chart")
-                return self._generate_mock_chart(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+                # Mock chart disabled — return None
+                logger.error("Still no access token available; skipping mock chart and returning None")
+                return None
 
         try:
             # Create localized datetime
@@ -1085,7 +1089,8 @@ class EnhancedAstroBotAPI:
                 
                 if chart_response.status_code != 200:
                     logger.error(f"Chart API Error: {chart_response.text}")
-                    return self._generate_mock_chart(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+                    # Mock chart disabled — return None
+                    return None
                 
                 # Check if response is SVG
                 content_type = chart_response.headers.get('content-type', '')
@@ -1112,11 +1117,13 @@ class EnhancedAstroBotAPI:
                     return chart_data
             except Exception as e:
                 logger.error(f"Error fetching Chart from ProKerala Chart endpoint: {e}")
-                return self._generate_mock_chart(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+                # Mock chart disabled — return None
+                return None
                 
         except Exception as e:
             logger.error(f"Timezone or Date/Time Error: {e}")
-            return self._generate_mock_chart(name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str)
+            # Mock chart disabled — return None
+            return None
 
     def _generate_mock_chart(self, name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str):
         """Generate mock chart for testing"""
@@ -1780,12 +1787,11 @@ def generate_kundli():
             longitude,
             birth_data['timezone']
         )
-        # Guarantee dict shape even if upstream changed
+        # Mock fallback disabled — if upstream didn't return a valid dict, error out
         if not chart_data or not isinstance(chart_data, dict):
-            chart_data = astro_api._generate_mock_chart_data(
-                birth_data['name'], birth_data['dob_date'], birth_data['tob_time'],
-                birth_data['place'], latitude, longitude, birth_data['timezone']
-            )
+            return jsonify({
+                "error": "Failed to generate Kundli (no valid data returned)."
+            }), 500
 
         # Always fetch visual chart SVG as well so frontend has both JSON and SVG
         try:
