@@ -940,13 +940,19 @@ class EnhancedAstroBotAPI:
             logger.error(f"Error fetching Advanced Kundli: {e}; skipping mock fallback and returning None")
             return None
 
-        # Robust extraction: different payloads may vary in key names
-        planet_positions = (
+        # Robust extraction: different payloads may vary in key names and shape (list vs dict)
+        raw_positions = (
             (data.get('planet_position') or {}).get('planet_position')
             or data.get('planet_positions')
             or data.get('planets')
             or []
         )
+        if isinstance(raw_positions, dict):
+            planet_positions = raw_positions.get('planet_position', [])
+        elif isinstance(raw_positions, list):
+            planet_positions = raw_positions
+        else:
+            planet_positions = []
         dasha_periods = data.get('dasha', {}) or data.get('dasha_periods', {})
         mangal_dosha = data.get('mangal_dosha', {})
 
@@ -984,9 +990,16 @@ class EnhancedAstroBotAPI:
                 'datetime': api_datetime_str
             }, timeout=15)
             if pos_resp.status_code == 200:
-                pos_data = pos_resp.json().get('data', {}).get('planet_position', [])
-                if pos_data:
-                    planet_positions = pos_data
+                pos_raw = pos_resp.json()
+                # Normalize regardless of shape
+                if isinstance(pos_raw, dict):
+                    possible = pos_raw.get('data', {}).get('planet_position', [])
+                else:
+                    possible = []
+                if isinstance(possible, list):
+                    planet_positions = possible
+                elif isinstance(possible, dict):
+                    planet_positions = possible.get('planet_position', [])
                     # Recompute ascendant and houses from authoritative planet-position
                     if planet_positions:
                         lagna_planet = next((p for p in planet_positions if p.get('id') == 100 or p.get('name') == 'Lagna'), None) or lagna_planet
