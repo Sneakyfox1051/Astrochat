@@ -960,8 +960,20 @@ class EnhancedAstroBotAPI:
 
         # Robust extraction: normalize planet positions regardless of provider shape
         planet_positions = _safe_get_positions(data)
-        dasha_periods = data.get('dasha', {}) or data.get('dasha_periods', {})
-        mangal_dosha = data.get('mangal_dosha', {})
+        # Normalize dasha_periods (can be dict or list from ProKerala)
+        raw_dasha = data.get('dasha') or data.get('dasha_periods') or {}
+        if isinstance(raw_dasha, list):
+            dasha_periods = {}
+            # If list, try to extract mahadasha from first element if it's a dict
+            if raw_dasha and isinstance(raw_dasha[0], dict):
+                dasha_periods = raw_dasha[0]
+        elif isinstance(raw_dasha, dict):
+            dasha_periods = raw_dasha
+        else:
+            dasha_periods = {}
+        # Ensure mangal_dosha is a dict
+        raw_mangal = data.get('mangal_dosha', {})
+        mangal_dosha = raw_mangal if isinstance(raw_mangal, dict) else {}
 
         planets_in_house = {}
         ascendant_sign = None
@@ -1028,7 +1040,21 @@ class EnhancedAstroBotAPI:
         except Exception as _e:
             logger.warning(f"planet-position fetch failed: {_e}")
 
-        current_mahadasha = dasha_periods.get('mahadasha', {}).get('lord', 'Unknown')
+        # Safely extract mahadasha (handle both dict and list dasha_periods)
+        current_mahadasha = 'Unknown'
+        try:
+            if isinstance(dasha_periods, dict):
+                maha_obj = dasha_periods.get('mahadasha', {})
+                if isinstance(maha_obj, dict):
+                    current_mahadasha = maha_obj.get('lord', 'Unknown')
+            # Also check dasha_balance if present (another way ProKerala provides current dasha)
+            dasha_balance = data.get('dasha_balance', {})
+            if isinstance(dasha_balance, dict):
+                lord_obj = dasha_balance.get('lord', {})
+                if isinstance(lord_obj, dict):
+                    current_mahadasha = lord_obj.get('vedic_name', lord_obj.get('name', current_mahadasha))
+        except Exception as e:
+            logger.warning(f"Error extracting mahadasha: {e}")
 
         final_chart_data = {
             "name": name,
