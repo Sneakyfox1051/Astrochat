@@ -695,7 +695,7 @@ def generate_remedies(user_query, chart_data, compact=False):
         paid_one = selected['buyable'][0] if selected.get('buyable') else ''
         paid_one = format_product_line(paid_one) if paid_one else ''
         return (
-            f"\n\n---\nAdab ji, ghabrane ki koi baat nahi hai. Yadi aap chahte hain ki aapki problems thik ho ya kuch bhi use kar sakein, uske liye aap yeh upay kar sakte hain:\n\n"
+            f"\n\n---\nAdab ji, ghabrane ki koi baat nahi hai. Aapki problems ko thik karne ke liye, aap yeh upay kar sakte hain:\n\n"
             f"1. {selected['free']}\n"
             f"2. {paid_one} (AstroRemedis pe uplabdh)\n\n"
             f"Activation: {activation_process}\n"
