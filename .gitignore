@@ -22,6 +22,10 @@ backend/*-key.json
 chroma_db/
 backend/chroma_db/
 
+# Generated chart files
+backend/charts/chart_sample.svg
+backend/charts/*.png
+
 # Frontend cache and build artifacts
 frontend/node_modules/.cache/
 

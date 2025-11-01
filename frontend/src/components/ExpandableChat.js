@@ -464,6 +464,19 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
     }
   };
 
+  /**
+   * handleSendMessage - Main message handler that processes user input
+   * 
+   * Flow:
+   * 1. Adds user message to chat
+   * 2. Shows typing indicator
+   * 3. Routes based on currentStep:
+   *    - horary_waiting: Validates 1-249 number, calls KP Horary API
+   *    - ask_name/tob/dob/place: Stepwise data collection
+   *    - confirm_details: Validates and triggers Kundli generation
+   *    - chatting: Sends to backend /api/chat with chart_data context
+   * 4. Handles errors gracefully with user-friendly messages
+   */
   const handleSendMessage = async () => {
     if (inputText.trim()) {
       const newMessage = {
