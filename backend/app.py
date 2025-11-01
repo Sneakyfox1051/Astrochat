@@ -1260,7 +1260,7 @@ class EnhancedAstroBotAPI:
             
             # Define minimum realistic ages for prediction categories
             min_ages = {
-                "relationship_advice": 21,  
+                "relationship_advice": 25,  
                 "career_guidance": 20,  
                 "health_guidance": 15,  
                 "child_guidance": 22,  
@@ -1307,7 +1307,7 @@ class EnhancedAstroBotAPI:
             Minimum realistic age for this event is {minimum_age_threshold} years.  
             Prediction year MUST be >= {earliest_realistic_year} AND >= 2025.
             
-            **CRITICAL MARRIAGE AGE CHECK:** For marriage predictions, the person must be at least 21 years old (legal age).
+            **CRITICAL MARRIAGE AGE CHECK:** For marriage predictions, the person must be at least 25 years old.
             For birth year {birth_year}, the earliest possible marriage year is {earliest_marriage_year}.
             NEVER predict marriage before {earliest_marriage_year} regardless of Dasha data.
             
@@ -1564,7 +1564,7 @@ class EnhancedAstroBotAPI:
             48. **STRICT GROUNDING (NON-NEGOTIABLE):** Sirf "INTERNAL REFERENCE DATA" (chart data) aur "KP ASTROLOGY KNOWLEDGE" (docs) ka hi upyog karein. Agar context me jo baat NAHI hai, to seedha kahe: "Is vishay par pakki jaankari uplabdh nahi hai." Koi bhi fact invent NA karein.
             49. **CURRENT YEAR AWARENESS:** We are currently in 2025. ALL predictions must be for FUTURE years (2025 onwards)
             50. **AGE/LOGIC OVERRIDE:** For any prediction, the Prediction Year MUST be GREATER THAN or EQUAL TO the Earliest Realistic Year ({earliest_realistic_year})
-            51. **MARRIAGE AGE VALIDATION:** For marriage predictions, the person must be at least 21 years old. For birth year {birth_year}, the earliest possible marriage year is {earliest_marriage_year}
+            51. **MARRIAGE AGE VALIDATION:** For marriage predictions, the person must be at least 25 years old. For birth year {birth_year}, the earliest possible marriage year is {earliest_marriage_year}
             52. **Dasha Priority:** The timing for prediction MUST be sourced from the Dasha periods
             53. **Time Reference:** ALWAYS use specific FUTURE years/timeframes derived from the Dasha data
             54. **Technical Query Handling:** When users ask for technical details, provide specific information with clear explanations
