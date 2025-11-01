@@ -695,7 +695,7 @@ def generate_remedies(user_query, chart_data, compact=False):
         paid_one = selected['buyable'][0] if selected.get('buyable') else ''
         paid_one = format_product_line(paid_one) if paid_one else ''
         return (
-            f"\n\nAdab ji, ghabrane ki koi baat nahi hai. Yadi aap chahte hain ki aapki problems thik ho ya kuch bhi use kar sakein, uske liye aap yeh upay kar sakte hain:\n\n"
+            f"\n\n---\nAdab ji, ghabrane ki koi baat nahi hai. Yadi aap chahte hain ki aapki problems thik ho ya kuch bhi use kar sakein, uske liye aap yeh upay kar sakte hain:\n\n"
             f"1. {selected['free']}\n"
             f"2. {paid_one} (AstroRemedis pe uplabdh)\n\n"
             f"Activation: {activation_process}\n"
@@ -1452,7 +1452,7 @@ class EnhancedAstroBotAPI:
                 ]
                 
                 intro = random.choice(question_intros)
-                follow_up_instruction = f"{intro} '{follow_up_question}'"
+                follow_up_instruction = f"{intro} '{follow_up_question}' - IMPORTANT: This follow-up question MUST appear as the LAST LINE of your response, after the blessing."
 
             # Build remedies section only if the question implies a problem/pain
             remedies_section = generate_remedies(question, chart_data, compact=True) if should_append_remedies(question) else ""
@@ -1578,14 +1578,14 @@ class EnhancedAstroBotAPI:
             1) Greeting line
             2) Core Line 1 (Vedic/KP + optional mole/guess)
             3) Core Line 2 (Lal Kitab + remedy + subtle product)
-            4) Follow-up (short question)
-            5) Blessing line
+            4) Blessing line
+            5) Follow-up (short question)
             Example (no labels):
             Namaskar, main aapka AstroRemedis ka AI Astrologer hoon.
             Aapki Lagna [Sign] hai... (ya Horary number ...)
             Aapke grahon se... AstroRemedis ka ... beneficial hoga.
-            Kya main aur detail me bataun?
             Bhagwan aap par apna aashirwad sadaiv banaaye rakhen.
+            Kya main aur detail me bataun?
 
             **User's Question:** "{question}"
 
@@ -1609,7 +1609,7 @@ class EnhancedAstroBotAPI:
             **CRITICAL INSTRUCTION - READ CAREFULLY:** 
             You MUST make every response feel fresh, natural, and conversational. NO templates, NO repetition. Imagine you're talking to a friend - be warm, be real, be natural. Vary your greetings, mix your sentence structure, change your phrasing every single time. Make the user feel like they're talking to a REAL person, not a robot reciting scripts. Keep it spiritual but human, accurate but natural. NEVER repeat the exact same words for similar questions. BE CONVERSATIONAL, BE HUMAN.
             Formatting rules: Start each bullet on a new line beginning with '- '. Avoid numbering unless needed. Keep 3–5 short bullets total.
-            {('MANDATORY: You MUST include these EXACT remedies in your response as plain text (copy them exactly, including the natural empathetic introduction): ' + remedies_section) if remedies_section else ''}
+            {('MANDATORY: You MUST include these EXACT remedies in your response as plain text. Start remedies section on a NEW LINE (add a blank line before "Adab ji..."). Copy them exactly, including the natural empathetic introduction:\n\n' + remedies_section) if remedies_section else ''}
             {follow_up_instruction if follow_up_instruction else ''}
                             """
             
