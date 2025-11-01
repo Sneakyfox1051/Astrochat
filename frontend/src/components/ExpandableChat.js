@@ -16,7 +16,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "Jai Shri Ram 🙏 Swagat hai aapka AstroRemedis par. Main aapka digital Pandit Ji hoon.",
+      text: "Jai Shri Ram 🙏 Swagat hai aapka AstroRemedis par. Main aapka AstroRemedis ka AI Astrologer hoon. Aap kaise hain?",
       sender: 'pandit',
       timestamp: new Date().toLocaleTimeString()
     },
@@ -118,7 +118,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         setMessages([
           {
             id: 1,
-            text: `Jai Shri Ram 🙏 ${userData.name} ji, swagat hai aapka AstroRemedis par. Main aapka digital Pandit Ji hoon.`,
+            text: `Jai Shri Ram 🙏 ${userData.name} ji, swagat hai aapka AstroRemedis par. Main aapka AstroRemedis ka AI Astrologer hoon. Aap kaise hain?`,
             sender: 'pandit',
             timestamp: new Date().toLocaleTimeString()
           },
@@ -141,7 +141,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         setMessages([
           {
             id: 1,
-            text: `Jai Shri Ram 🙏 ${userData.name} ji, swagat hai aapka AstroRemedis par. Main aapka digital Pandit Ji hoon. Aap kaise hain?`,
+            text: `Jai Shri Ram 🙏 ${userData.name} ji, swagat hai aapka AstroRemedis par. Main aapka AstroRemedis ka AI Astrologer hoon. Aap kaise hain?`,
             sender: 'pandit',
             timestamp: new Date().toLocaleTimeString()
           },
@@ -192,7 +192,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         setMessages([
           {
             id: 1,
-            text: "Jai Shri Ram 🙏 Swagat hai aapka AstroRemedis par. Main aapka digital Pandit Ji hoon.",
+            text: "Jai Shri Ram 🙏 Swagat hai aapka AstroRemedis par. Main aapka AstroRemedis ka AI Astrologer hoon. Aap kaise hain?",
             sender: 'pandit',
             timestamp: new Date().toLocaleTimeString()
           },
