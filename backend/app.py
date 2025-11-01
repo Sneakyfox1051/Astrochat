@@ -1469,15 +1469,13 @@ class EnhancedAstroBotAPI:
             safe_earliest_marriage_year = earliest_marriage_year or (birth_year + min_ages["relationship_advice"])
             logger.info(f"[AI] response_style={response_style}, earliest_realistic_year={earliest_realistic_year}, earliest_marriage_year={safe_earliest_marriage_year}")
 
-            # Extract explicit identity values - prioritize client_profile (from first message) over chart_data
-            # This ensures consistency across all messages in a session
+            # Extract explicit identity values - prioritize client_profile for Lagna/Chandra Rashi only
+            # Mahadasha is always extracted from chart_data (current dasha changes over time)
             if client_profile:
                 exact_lagna = client_profile.get('lagna') or 'Unknown'
                 exact_chandra_rashi = client_profile.get('chandra_rashi') or 'Unknown'
-                exact_mahadasha = client_profile.get('mahadasha') or 'Unknown'
             else:
                 exact_lagna = chart_data.get('ascendant_sign_name', 'Unknown') if chart_data else 'Unknown'
-                exact_mahadasha = chart_data.get('current_mahadasha', 'Unknown') if chart_data else 'Unknown'
                 
                 # Extract Moon rashi from planet positions
                 exact_chandra_rashi = 'Unknown'
@@ -1491,6 +1489,9 @@ class EnhancedAstroBotAPI:
                 except Exception as e:
                     logger.warning(f"Error extracting Moon rashi: {e}")
                     exact_chandra_rashi = 'Unknown'
+            
+            # Mahadasha always comes from chart_data (not client_profile) as it represents current period
+            exact_mahadasha = chart_data.get('current_mahadasha', 'Unknown') if chart_data else 'Unknown'
 
             system_prompt = f"""
             You are AstroRemedis ka AI Astrologer - a divine, scientific, and interactive personality that combines Vedic wisdom with modern technology.
@@ -1776,6 +1777,7 @@ def chat():
             }), 400
         
         # Check if we're in horary mode
+        enriched = chart_data or {}  # Initialize for use in enforce_identity_consistency
         if chart_data and chart_data.get('mode') == 'horary':
             # Use horary-specific response generator
             user_name = chart_data.get('name', 'User')
@@ -1807,12 +1809,15 @@ def chat():
             ai_response = astro_api.generate_ai_response(user_message, enriched, client_profile=client_profile)
 
         # Enforce stable identities and suppress repeats after first reply
+        # Lagna and Chandra Rashi from client_profile (consistent across session)
+        # Mahadasha from chart_data (current period, may change)
+        mahadasha_from_chart = enriched.get('current_mahadasha') if isinstance(enriched, dict) else None
         ai_response = enforce_identity_consistency(
             ai_response,
             {
                 'lagna': client_profile.get('lagna'),
                 'chandra_rashi': client_profile.get('chandra_rashi'),
-                'mahadasha': client_profile.get('mahadasha')
+                'mahadasha': mahadasha_from_chart or client_profile.get('mahadasha')
             },
             suppress_identities=suppress_identities
         )
