@@ -1225,7 +1225,7 @@ class EnhancedAstroBotAPI:
             logger.error(f"Error in basic AI response: {e}")
             return "Sorry, main abhi online nahi hun. Kripya thodi der baad try karein."
     
-    def get_rag_response(self, question, chart_data, conversation_history=None):
+    def get_rag_response(self, question, chart_data, conversation_history=None, client_profile=None):
         """Get AI response using RAG with chart data and KP rules and append remedies."""
         if not RAG_AVAILABLE:
             # Fallback to basic OpenAI response without RAG
@@ -1233,7 +1233,7 @@ class EnhancedAstroBotAPI:
             
         if self.vector_store is None or not OPENAI_API_KEY:
             return "Authentic answer unavailable: knowledge base or AI key missing. Kripya birth details dein ya baad me try karein."
-            
+        
         try:
             # Ensure variable exists in all code paths
             earliest_marriage_year = 0
@@ -1469,6 +1469,29 @@ class EnhancedAstroBotAPI:
             safe_earliest_marriage_year = earliest_marriage_year or (birth_year + min_ages["relationship_advice"])
             logger.info(f"[AI] response_style={response_style}, earliest_realistic_year={earliest_realistic_year}, earliest_marriage_year={safe_earliest_marriage_year}")
 
+            # Extract explicit identity values - prioritize client_profile (from first message) over chart_data
+            # This ensures consistency across all messages in a session
+            if client_profile:
+                exact_lagna = client_profile.get('lagna') or 'Unknown'
+                exact_chandra_rashi = client_profile.get('chandra_rashi') or 'Unknown'
+                exact_mahadasha = client_profile.get('mahadasha') or 'Unknown'
+            else:
+                exact_lagna = chart_data.get('ascendant_sign_name', 'Unknown') if chart_data else 'Unknown'
+                exact_mahadasha = chart_data.get('current_mahadasha', 'Unknown') if chart_data else 'Unknown'
+                
+                # Extract Moon rashi from planet positions
+                exact_chandra_rashi = 'Unknown'
+                try:
+                    if chart_data:
+                        positions = ((chart_data.get('prokerala_data') or {}).get('planet_positions')) or []
+                        if isinstance(positions, list):
+                            moon_planet = next((p for p in positions if isinstance(p, dict) and p.get('name') == 'Moon'), None)
+                            if moon_planet and isinstance(moon_planet.get('rasi'), dict):
+                                exact_chandra_rashi = moon_planet.get('rasi', {}).get('name', 'Unknown')
+                except Exception as e:
+                    logger.warning(f"Error extracting Moon rashi: {e}")
+                    exact_chandra_rashi = 'Unknown'
+
             system_prompt = f"""
             You are AstroRemedis ka AI Astrologer - a divine, scientific, and interactive personality that combines Vedic wisdom with modern technology.
             
@@ -1497,7 +1520,7 @@ class EnhancedAstroBotAPI:
             13. **Follow-up:** Follow-up hamesha ho – "Kya main aur detail me bataun?"
             14. **Precise Answers:** User ke sawalon ka jawab calculation ke adhar par precise aur warm tone me ho
 
-            IMPORTANT: Agar chart_data me Lagna, Chandra Rashi, aur Dasha available ho to INHE EXACTLY use karo. In teenon ko kabhi change ya guess mat karo. Same DOB ke liye ye hamesha same rahenge.
+            IMPORTANT: Upar diye gaye "EXACT IDENTITY VALUES" section mein jo LAGNA, CHANDRA RASHI, aur MAHADASHA values hain, unhe EXACTLY use karo. In teenon ko kabhi change ya guess mat karo. Har response mein yahi exact values honi chahiye.
             
             **MOLE & MARK PREDICTION SYSTEM (Til/Daag/Nishan):**
             15. **Body Mark Reading Layer:** AI apne grahon ke adhar par khud bataye ki user ke sharir ke kis part par til ya daag hone ke yog hain
@@ -1586,6 +1609,13 @@ class EnhancedAstroBotAPI:
 
             **User's Question:** "{question}"
 
+            **EXACT IDENTITY VALUES (MANDATORY - USE THESE EXACT VALUES, NO VARIATIONS):**
+            LAGNA (Ascendant): {exact_lagna}
+            CHANDRA RASHI (Moon Sign): {exact_chandra_rashi}
+            MAHADASHA (Current Dasha Lord): {exact_mahadasha}
+            
+            CRITICAL: Har response mein yahi EXACT values use karein. Inme se koi bhi value change ya guess mat karein. Same DOB/time/place ke liye ye values hamesha same rahenge.
+
             **INTERNAL REFERENCE DATA (Analyze and Apply Rules):**
             {chart_context}
             
@@ -1642,10 +1672,10 @@ class EnhancedAstroBotAPI:
             logger.error(f"Error in RAG response: {e}")
             return f"Sorry, I encountered an error with the AI model: {e}"
 
-    def generate_ai_response(self, user_message, chart_data=None):
+    def generate_ai_response(self, user_message, chart_data=None, client_profile=None):
         """Generate AI response - use RAG if chart data available, otherwise basic response"""
         if chart_data and self.vector_store and OPENAI_API_KEY:
-            return self.get_rag_response(user_message, chart_data)
+            return self.get_rag_response(user_message, chart_data, client_profile=client_profile)
         else:
             # No generic fallbacks – require chart/KB for authenticity
             if not chart_data:
@@ -1774,7 +1804,7 @@ def chat():
                 except Exception as _e:
                     pass
 
-            ai_response = astro_api.generate_ai_response(user_message, enriched)
+            ai_response = astro_api.generate_ai_response(user_message, enriched, client_profile=client_profile)
 
         # Enforce stable identities and suppress repeats after first reply
         ai_response = enforce_identity_consistency(
