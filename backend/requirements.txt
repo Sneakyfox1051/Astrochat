@@ -1,9 +1,9 @@
 # Core Flask dependencies
 Flask==2.3.3
-Flask-CORS==4.0.0
+Flask-CORS==6.0.0
 
 # HTTP requests and API calls
-requests==2.31.0
+requests==2.32.4
 
 # Environment configuration
 python-dotenv==1.0.0
@@ -15,8 +15,8 @@ geopy==2.4.0
 openai>=1.6.1,<2.0.0
 
 # LangChain for RAG (Retrieval Augmented Generation) - Using simpler alternatives
-langchain==0.1.0
-langchain-community==0.0.10
+langchain==0.3.0.dev1
+langchain-community==0.3.27
 # langchain-openai==0.0.2  # Commented out - causes tiktoken compilation issues
 
 # Vector store for RAG - Using ChromaDB instead of FAISS (no Rust compilation)
