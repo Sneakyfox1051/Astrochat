@@ -3,11 +3,39 @@
  * Handles all communication with the backend API
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://astroremedis.onrender.com';
+// DEPLOYED BACKEND URL - Production
+const API_BASE_URL_DEPLOYED = 'https://astroremedis.onrender.com';
+
+// LOCAL DEVELOPMENT URL - Commented out for deployment
+// const API_BASE_URL_LOCAL = 'http://127.0.0.1:5000';
+
+// Use deployed URL by default, fallback to environment variable if set
+const API_BASE_URL = process.env.REACT_APP_API_URL || API_BASE_URL_DEPLOYED;
 
 class AstroBotAPI {
   constructor() {
     this.baseURL = API_BASE_URL;
+    console.log('AstroBotAPI initialized with baseURL:', this.baseURL);
+  }
+
+  /**
+   * Verify backend connectivity
+   * @returns {Promise<boolean>} True if backend is accessible
+   */
+  async verifyConnection() {
+    try {
+      const response = await fetch(`${this.baseURL}/api/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Backend connection verification failed:', error);
+      console.error('Backend URL:', this.baseURL);
+      return false;
+    }
   }
 
   /**
@@ -73,8 +101,13 @@ class AstroBotAPI {
   async generateKundli(birthDetails) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
-      const response = await fetch(`${this.baseURL}/api/kundli`, {
+      const timeout = setTimeout(() => controller.abort(), 60000); // Increased timeout to 60s for Kundli generation
+      
+      const url = `${this.baseURL}/api/kundli`;
+      console.log('Generating Kundli - URL:', url);
+      console.log('Generating Kundli - Payload:', birthDetails);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,8 +132,18 @@ class AstroBotAPI {
 
       return await response.json();
     } catch (error) {
-      console.error('Error generating Kundli:', error);
-      throw error;
+      if (error.name === 'AbortError') {
+        console.error('Error generating Kundli: Request timeout after 60 seconds');
+        throw new Error('Request timeout. Kundli generation is taking longer than expected. Please try again.');
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('ERR_CONNECTION_RESET')) {
+        console.error('Error generating Kundli: Network error - Backend connection was reset');
+        console.error('Backend URL:', this.baseURL);
+        console.error('This usually means the backend crashed or closed the connection during processing.');
+        throw new Error(`Connection reset by backend server. The server may have encountered an error while processing your request. Please check the backend logs and try again.`);
+      } else {
+        console.error('Error generating Kundli:', error);
+        throw error;
+      }
     }
   }
 
@@ -113,7 +156,12 @@ class AstroBotAPI {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30000);
-      const response = await fetch(`${this.baseURL}/api/chart`, {
+      
+      const url = `${this.baseURL}/api/chart`;
+      console.log('Generating chart - URL:', url);
+      console.log('Generating chart - Payload:', birthDetails);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -137,8 +185,17 @@ class AstroBotAPI {
 
       return await response.json();
     } catch (error) {
-      console.error('Error generating chart:', error);
-      throw error;
+      if (error.name === 'AbortError') {
+        console.error('Error generating chart: Request timeout after 30 seconds');
+        throw new Error('Request timeout. Please check your connection and try again.');
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        console.error('Error generating chart: Network error - Backend may not be running or accessible');
+        console.error('Backend URL:', this.baseURL);
+        throw new Error(`Cannot connect to backend server at ${this.baseURL}. Please ensure the backend is running.`);
+      } else {
+        console.error('Error generating chart:', error);
+        throw error;
+      }
     }
   }
 
@@ -182,7 +239,11 @@ class AstroBotAPI {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
-      const response = await fetch(`${this.baseURL}/api/form-submit`, {
+      
+      const url = `${this.baseURL}/api/form-submit`;
+      console.log('Submitting form data - URL:', url);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,9 +260,19 @@ class AstroBotAPI {
 
       return await response.json();
     } catch (error) {
-      console.error('Error submitting form data:', error);
-      // Don't throw hard error to avoid blocking UX; return {success:false}
-      return { success: false, error: error.message };
+      if (error.name === 'AbortError') {
+        console.error('Error submitting form data: Request timeout');
+        return { success: false, error: 'Request timeout. Please check your connection.' };
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        console.error('Error submitting form data: Network error - Backend may not be running or accessible');
+        console.error('Backend URL:', this.baseURL);
+        // Don't throw hard error to avoid blocking UX; return {success:false}
+        return { success: false, error: `Cannot connect to backend at ${this.baseURL}. Please ensure the backend is running.` };
+      } else {
+        console.error('Error submitting form data:', error);
+        // Don't throw hard error to avoid blocking UX; return {success:false}
+        return { success: false, error: error.message };
+      }
     }
   }
 

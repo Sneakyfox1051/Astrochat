@@ -2,6 +2,19 @@
 
 A sophisticated AI-powered astrology chatbot that combines advanced Kundli generation with intelligent conversational AI. Built with React frontend and Flask backend, featuring RAG (Retrieval Augmented Generation) for context-aware astrology guidance.
 
+## 🚀 Deployment
+
+### Production URLs
+- **Backend API**: [https://astroremedis.onrender.com](https://astroremedis.onrender.com)
+- **Frontend**: (Add your frontend deployment URL here)
+- **GitHub Repository**: [https://github.com/Sneakyfox1051/Astrochat.git](https://github.com/Sneakyfox1051/Astrochat.git)
+
+### Deployment Status
+- ✅ Backend configured for production deployment
+- ✅ Frontend API service configured with deployed backend URL
+- ✅ Local development URLs commented out
+- 📝 See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions
+
 ## 🌟 Features
 
 ### Frontend
@@ -26,10 +39,7 @@ A sophisticated AI-powered astrology chatbot that combines advanced Kundli gener
 astro-main/
 ├── backend/                 # Flask API Server
 │   ├── app.py              # Main Flask application
-│   ├── start_server.py     # Server startup script
-│   ├── test_api.py         # API testing script
 │   ├── requirements.txt    # Python dependencies
-│   ├── env_example.txt     # Environment variables template
 │   └── README.md          # Backend documentation
 ├── frontend/               # React Frontend
 │   ├── src/
@@ -38,6 +48,12 @@ astro-main/
 │   │   └── assets/        # Images and media
 │   ├── package.json       # Node dependencies
 │   └── README.md         # Frontend documentation
+├── tests/                  # Test Files (Separate from main code)
+│   ├── test_assistant_api.py  # OpenAI Assistant API test app
+│   ├── requirements.txt    # Test dependencies
+│   └── README.md          # Test documentation
+├── archive/                # Old/Discarded Code Files
+│   └── README.md          # Archive documentation
 ├── docs/                  # Knowledge Base Documents
 │   ├── KP_RULE_1.docx    # KP Astrology Rules
 │   ├── KP_RULE_2.docx    # KP Astrology Rules
@@ -165,8 +181,25 @@ const response = await fetch('http://localhost:5000/api/kundli', {
 ### Backend Testing
 ```bash
 cd backend
-python test_api.py
+python app.py
 ```
+
+### Assistant API Testing (Separate Test App)
+```bash
+# Install test dependencies
+pip install -r tests/requirements.txt
+
+# Run the test app
+streamlit run tests/test_assistant_api.py
+```
+
+This test app allows you to:
+- Test OpenAI Assistant API responses
+- Compare Assistant API with current RAG workflow
+- Test with optional chart data context
+- Export conversations for analysis
+
+**Note:** Test files are separate from main code and don't modify production files.
 
 ### Manual Testing
 1. Start both backend and frontend servers
