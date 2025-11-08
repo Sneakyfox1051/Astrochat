@@ -61,7 +61,6 @@ logger = logging.getLogger(__name__)
 
 # Import config module - handle both local and deployment scenarios
 import sys
-import os
 
 # Ensure backend directory is in Python path
 backend_dir = os.path.dirname(os.path.abspath(__file__))
