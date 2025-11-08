@@ -54,7 +54,18 @@ import pytz
 import openai
 from dotenv import load_dotenv
 from googleapiclient.errors import HttpError
-from config import FOLLOW_UP_QUESTIONS, QUESTION_INTROS, RESPONSE_STYLE_MAP
+
+# Import config module - handle both local and deployment scenarios
+try:
+    from config import FOLLOW_UP_QUESTIONS, QUESTION_INTROS, RESPONSE_STYLE_MAP
+except ImportError:
+    # Fallback: try importing from current directory or add to path
+    import sys
+    import os
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
+    from config import FOLLOW_UP_QUESTIONS, QUESTION_INTROS, RESPONSE_STYLE_MAP
 
 # Configure logging early (needed for early warnings)
 logging.basicConfig(level=logging.INFO)
