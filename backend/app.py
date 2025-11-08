@@ -55,21 +55,37 @@ import openai
 from dotenv import load_dotenv
 from googleapiclient.errors import HttpError
 
-# Import config module - handle both local and deployment scenarios
-try:
-    from config import FOLLOW_UP_QUESTIONS, QUESTION_INTROS, RESPONSE_STYLE_MAP
-except ImportError:
-    # Fallback: try importing from current directory or add to path
-    import sys
-    import os
-    backend_dir = os.path.dirname(os.path.abspath(__file__))
-    if backend_dir not in sys.path:
-        sys.path.insert(0, backend_dir)
-    from config import FOLLOW_UP_QUESTIONS, QUESTION_INTROS, RESPONSE_STYLE_MAP
-
 # Configure logging early (needed for early warnings)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Import config module - handle both local and deployment scenarios
+import sys
+import os
+
+# Ensure backend directory is in Python path
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
+try:
+    from config import FOLLOW_UP_QUESTIONS, QUESTION_INTROS, RESPONSE_STYLE_MAP
+except ImportError as e:
+    # If import still fails, log the error and use defaults
+    logger.error(f"Failed to import config module: {e}")
+    logger.error(f"Python path: {sys.path}")
+    logger.error(f"Backend directory: {backend_dir}")
+    if os.path.exists(backend_dir):
+        try:
+            logger.error(f"Files in backend directory: {os.listdir(backend_dir)}")
+        except Exception as list_err:
+            logger.error(f"Could not list directory: {list_err}")
+    else:
+        logger.error("Backend directory not found")
+    # Use empty defaults to prevent complete failure
+    FOLLOW_UP_QUESTIONS = {}
+    QUESTION_INTROS = []
+    RESPONSE_STYLE_MAP = {}
 
 # RAG functionality removed; Assistant API is used exclusively
 
