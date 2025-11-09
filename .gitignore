@@ -14,9 +14,12 @@ frontend/.env.local
 !package.json
 !package-lock.json
 !tsconfig.json
+# Service Account JSON files (NEVER commit these!)
 backend/astroremedis-*.json
 backend/*-credentials.json
 backend/*-key.json
+backend/*-service-account*.json
+backend/*service-account*.json
 
 # ChromaDB (vector database)
 chroma_db/
@@ -149,6 +152,14 @@ public
 tmp/
 temp/
 
+# Test files and outputs (optional - uncomment if you don't want to track test artifacts)
+# tests/__pycache__/
+# tests/*.pyc
+# tests/chat_*.json
+
+# Archive directory (old code files)
+archive/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -158,3 +169,7 @@ temp/
 *.njsproj
 *.sln
 *.sw?
+
+# Streamlit secrets (NEVER commit these!)
+.streamlit/secrets.toml
+.streamlit/secrets/

@@ -3,7 +3,7 @@
  * Handles all communication with the backend API
  */
 
-// DEPLOYED BACKEND URL - Production
+// DEPLOYED BACKEND URL - Production (Active for deployment)
 const API_BASE_URL_DEPLOYED = 'https://astroremedis.onrender.com';
 
 // LOCAL DEVELOPMENT URL - Commented out for deployment
@@ -391,6 +391,82 @@ class AstroBotAPI {
       return await response.json();
     } catch (error) {
       console.error('Error generating Lal Kitab observation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Submit form data to Google Sheets
+   * @param {Object} formData - Form data object
+   * @param {string} formData.name - User's name
+   * @param {string} formData.dob - Date of birth (YYYY-MM-DD)
+   * @param {string} formData.tob - Time of birth (HH:MM:SS)
+   * @param {string} formData.place - Birth place
+   * @param {string} formData.timezone - Timezone (default: Asia/Kolkata)
+   * @param {string} formData.mode - Mode (kundli or horary)
+   * @returns {Promise<Object>} API response
+   */
+  async submitFormData(formData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/form-submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          dob: formData.dob,
+          tob: formData.tob,
+          place: formData.place,
+          timezone: formData.timezone || 'Asia/Kolkata',
+          mode: formData.mode || 'kundli'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error submitting form data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Submit feedback to Google Sheets
+   * @param {Object} feedbackData - Feedback data object
+   * @param {number} feedbackData.rating - User rating (1-5)
+   * @param {string} feedbackData.feedback - Additional feedback text
+   * @param {string} feedbackData.user_name - User's name to link feedback to form (optional)
+   * @param {string} feedbackData.timestamp - ISO timestamp (optional)
+   * @returns {Promise<Object>} API response
+   */
+  async submitFeedback(feedbackData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/feedback-submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rating: feedbackData.rating,
+          feedback: feedbackData.feedback || '',
+          user_name: feedbackData.user_name || '',
+          timestamp: feedbackData.timestamp || new Date().toISOString()
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
       throw error;
     }
   }

@@ -21,9 +21,10 @@
  * @returns {JSX.Element} The modal form interface
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './UserDataForm.css';
 import astroBotAPI from '../services/api';
+import { filterCities } from '../data/indianCities';
 
 const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
@@ -37,6 +38,13 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
   
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Autocomplete state for place field
+  const [placeSuggestions, setPlaceSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const placeInputRef = useRef(null);
+  const suggestionsRef = useRef(null);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -50,8 +58,120 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
         mode: 'kundli'
       });
       setErrors({});
+      setPlaceSuggestions([]);
+      setShowSuggestions(false);
+      setSelectedSuggestionIndex(-1);
     }
   }, [isOpen]);
+
+  // Handle place input changes with autocomplete
+  const handlePlaceChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      place: value
+    }));
+    
+    // Clear error when user starts typing
+    if (errors.place) {
+      setErrors(prev => ({
+        ...prev,
+        place: ''
+      }));
+    }
+    
+    // Filter cities based on input
+    if (value.trim().length >= 2) {
+      const suggestions = filterCities(value, 10);
+      setPlaceSuggestions(suggestions);
+      setShowSuggestions(suggestions.length > 0);
+      setSelectedSuggestionIndex(-1);
+    } else {
+      setPlaceSuggestions([]);
+      setShowSuggestions(false);
+      setSelectedSuggestionIndex(-1);
+    }
+  };
+
+  // Handle place suggestion selection
+  const handlePlaceSelect = (city) => {
+    setFormData(prev => ({
+      ...prev,
+      place: city
+    }));
+    setPlaceSuggestions([]);
+    setShowSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+    // Focus back on input after selection
+    if (placeInputRef.current) {
+      placeInputRef.current.focus();
+    }
+  };
+
+  // Handle keyboard navigation in suggestions
+  const handlePlaceKeyDown = (e) => {
+    if (!showSuggestions || placeSuggestions.length === 0) {
+      if (e.key === 'ArrowDown' && formData.place.trim().length >= 2) {
+        const suggestions = filterCities(formData.place, 10);
+        if (suggestions.length > 0) {
+          setPlaceSuggestions(suggestions);
+          setShowSuggestions(true);
+          setSelectedSuggestionIndex(0);
+        }
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => 
+          prev < placeSuggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < placeSuggestions.length) {
+          handlePlaceSelect(placeSuggestions[selectedSuggestionIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+        if (placeInputRef.current) {
+          placeInputRef.current.blur();
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target) &&
+        placeInputRef.current &&
+        !placeInputRef.current.contains(event.target)
+      ) {
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+      }
+    };
+
+    if (showSuggestions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showSuggestions]);
 
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -275,19 +395,51 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
                 {errors.tob && <span className="error-message">{errors.tob}</span>}
               </div>
 
-              <div className="form-group">
+              <div className="form-group place-autocomplete-group">
                 <label htmlFor="place">Birth Place/City *</label>
-                <input
-                  type="text"
-                  id="place"
-                  name="place"
-                  value={formData.place}
-                  onChange={handleInputChange}
-                  placeholder="Enter your birth city"
-                  className={errors.place ? 'error' : ''}
-                  disabled={isSubmitting}
-                />
+                <div className="place-input-wrapper">
+                  <input
+                    ref={placeInputRef}
+                    type="text"
+                    id="place"
+                    name="place"
+                    value={formData.place}
+                    onChange={handlePlaceChange}
+                    onKeyDown={handlePlaceKeyDown}
+                    onFocus={() => {
+                      if (formData.place.trim().length >= 2 && placeSuggestions.length > 0) {
+                        setShowSuggestions(true);
+                      }
+                    }}
+                    placeholder="Type city name (e.g., Kanpur, Mumbai, Delhi)"
+                    className={errors.place ? 'error' : ''}
+                    disabled={isSubmitting}
+                    autoComplete="off"
+                  />
+                  {showSuggestions && placeSuggestions.length > 0 && (
+                    <div 
+                      ref={suggestionsRef}
+                      className="place-suggestions-dropdown"
+                    >
+                      {placeSuggestions.map((city, index) => (
+                        <div
+                          key={city}
+                          className={`suggestion-item ${
+                            index === selectedSuggestionIndex ? 'selected' : ''
+                          }`}
+                          onClick={() => handlePlaceSelect(city)}
+                          onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                        >
+                          {city}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 {errors.place && <span className="error-message">{errors.place}</span>}
+                {formData.place.trim().length > 0 && formData.place.trim().length < 2 && (
+                  <span className="helper-text">Type at least 2 characters to see suggestions</span>
+                )}
               </div>
             </>
           )}

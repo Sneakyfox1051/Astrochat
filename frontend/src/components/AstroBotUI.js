@@ -33,12 +33,13 @@
  * @since 2024
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import ChatBubble from './ChatBubble';
 import Character from './Character';
 import BottomNavigation from './BottomNavigation';
 import ExpandableChat from './ExpandableChat';
 import UserDataForm from './UserDataForm';
+import astroBotAPI from '../services/api';
 import './AstroBotUI.css';
 // No video import; using procedural CSS background for better performance
 
@@ -52,6 +53,9 @@ const AstroBotUI = () => {
   
   // User data state - stores birth details from form submission
   const [userData, setUserData] = useState(null);
+  
+  // Prevent duplicate form submissions
+  const formSubmissionRef = useRef(false);
 
   // ===== EVENT HANDLERS =====
   
@@ -113,11 +117,35 @@ const AstroBotUI = () => {
    */
   const handleFormSubmit = async (data) => {
     try {
+      // Prevent duplicate submissions - check if already processing
+      if (formSubmissionRef.current) {
+        console.warn('Form submission already in progress, ignoring duplicate');
+        return;
+      }
+      
+      // Set flag immediately to prevent any duplicate calls
+      formSubmissionRef.current = true;
+      
+      // Store user data and update UI first (before API call)
       setUserData(data);        // Store user data for chat
       setIsFormOpen(false);     // Close form modal
       setIsChatOpen(true);      // Open chat interface
+      
+      // Submit form data to Google Sheets (non-blocking, fire and forget)
+      // Backend also has duplicate prevention, so this is double protection
+      astroBotAPI.submitFormData(data).catch(error => {
+        console.warn('Failed to save form data to Google Sheets:', error);
+        // Don't block form submission if Google Sheets fails
+      }).finally(() => {
+        // Reset after a longer delay to prevent rapid duplicate submissions
+        setTimeout(() => {
+          formSubmissionRef.current = false;
+        }, 3000); // Increased to 3 seconds for better protection
+      });
+      
       console.log('Form submitted with data:', data);
     } catch (error) {
+      formSubmissionRef.current = false; // Reset on error
       console.error('Error handling form submission:', error);
       throw error;
     }

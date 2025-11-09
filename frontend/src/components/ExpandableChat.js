@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import './ExpandableChat.css';
 import astroBotAPI from '../services/api';
 import KundliChart from './KundliChart';
+import FeedbackModal from './FeedbackModal';
 
 /**
  * ExpandableChat
@@ -41,12 +42,23 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
   const [isGeneratingChart, setIsGeneratingChart] = useState(false);
   // Steps: ask_name, ask_dob, ask_tob, ask_place, confirm_details, generating, chart_generated, chatting
   const [currentStep, setCurrentStep] = useState('ask_name');
-  const messagesEndRef = React.useRef(null);
-  const inputRef = React.useRef(null);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
   const [editMode, setEditMode] = useState(false);
-  const messageIdRef = React.useRef(3);
+  const messageIdRef = useRef(3);
   const [isBotTyping, setIsBotTyping] = useState(false);
   // Ensure chart is generated only once per chat session
+  const timeoutRefs = useRef([]); // Track all timeouts for cleanup
+
+  // ===== CHAT TIMER STATE =====
+  // Timer for 3-minute chat session limit
+  // 180 seconds = 3 minutes
+  const [timeRemaining, setTimeRemaining] = useState(180);
+  const timerIntervalRef = useRef(null); // Reference to the countdown interval
+
+  // ===== FEEDBACK MODAL STATE =====
+  // Controls visibility of the feedback modal
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   // Session profile to keep identities consistent and avoid repetition after first reply
   const [sessionProfile, setSessionProfile] = useState({
@@ -57,7 +69,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
   });
 
   // Cap verbose AI replies and keep only the first 3–5 bullets
-  const limitAndCleanResponse = (text) => {
+  const limitAndCleanResponse = useCallback((text) => {
     if (!text) return '';
     let cleaned = String(text).replace(/\s+$/,'').replace(/^\s+/,'');
     const lines = cleaned.split('\n');
@@ -92,12 +104,107 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
       cleaned = words.slice(0, wordLimit).join(' ') + '…';
     }
     return cleaned;
+  }, []);
+  const hasGeneratedRef = useRef(false);
+  const generationTimerRef = useRef(null);
+
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      // Clear all tracked timeouts
+      timeoutRefs.current.forEach(timeoutId => clearTimeout(timeoutId));
+      timeoutRefs.current = [];
+      // Clear generation timer
+      if (generationTimerRef.current) {
+        clearTimeout(generationTimerRef.current);
+        generationTimerRef.current = null;
+      }
+      // Clear chat timer interval
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, []);
+
+  /**
+   * Generate unique message IDs to prevent React key conflicts.
+   * Uses timestamp + counter to ensure uniqueness even in rapid succession.
+   * 
+   * @returns {string} Unique message ID (e.g., "1730891234567_3")
+   */
+  const nextMessageId = () => {
+    const id = `${Date.now()}_${messageIdRef.current}`;
+    messageIdRef.current += 1;
+    return id;
   };
-  const hasGeneratedRef = React.useRef(false);
-  const generationTimerRef = React.useRef(null);
+
+  // ===== CHAT TIMER LOGIC =====
+  /**
+   * Timer Effect - Manages the 3-minute chat session timer
+   * 
+   * Behavior:
+   * - Starts countdown when chat opens (isOpen = true)
+   * - Resets to 180 seconds (3 minutes) when chat opens
+   * - Decrements every second
+   * - When timer reaches 0:
+   *   1. Shows a farewell message to the user
+   *   2. Automatically closes the chat after 2 seconds
+   * - Cleans up interval when chat closes or component unmounts
+   */
+  useEffect(() => {
+    if (isOpen) {
+      // Reset timer to 3 minutes when chat opens
+      setTimeRemaining(180);
+      
+      // Start countdown timer - updates every second
+      timerIntervalRef.current = setInterval(() => {
+        setTimeRemaining(prev => {
+          // When timer reaches 0 or below, end the chat session
+          if (prev <= 1) {
+            // Clear the interval to stop the countdown
+            clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = null;
+            
+            // Add a farewell message to inform the user
+            setMessages(prev => [...prev, {
+              id: nextMessageId(),
+              text: "⏰ Aapka 3 minute ka session khatam ho gaya hai. Dhanyawad! Aap dobara chat kar sakte hain.",
+              sender: 'pandit',
+              timestamp: new Date().toLocaleTimeString()
+            }]);
+            
+            // Show feedback modal after a brief delay (2 seconds) to let user read the message
+            const feedbackTimer = setTimeout(() => {
+              setShowFeedbackModal(true);
+            }, 2000);
+            timeoutRefs.current.push(feedbackTimer);
+            
+            return 0; // Set to 0 to prevent negative values
+          }
+          // Decrement timer by 1 second
+          return prev - 1;
+        });
+      }, 1000); // Update every 1000ms (1 second)
+    } else {
+      // When chat closes, clear the timer interval
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    }
+
+    // Cleanup function - runs when component unmounts or dependencies change
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, [isOpen, onClose]);
 
   // When userData is provided (from the modal form), greet the user by name and prefill profile
-  React.useEffect(() => {
+  useEffect(() => {
     if (userData && userData.name) {
       // Clear any previous chart on a new session start
       setChartData(null);
@@ -118,18 +225,12 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         setMessages([
           {
             id: 1,
-            text: `Jai Shri Ram 🙏 ${userData.name} ji, swagat hai aapka AstroRemedis par. Main aapka AstroRemedis ka AI Astrologer hoon. Aap kaise hain?`,
-            sender: 'pandit',
-            timestamp: new Date().toLocaleTimeString()
-          },
-          {
-            id: 2,
             text: "Aapne KP Horary analysis choose kiya hai. Ye ek powerful method hai jo birth details ke bina bhi accurate predictions deta hai.",
             sender: 'pandit',
             timestamp: new Date().toLocaleTimeString()
           },
           {
-            id: 3,
+            id: 2,
             text: "Agar aapko birth details nahi pata to 1 se 249 tak koi number soch kar batayein. Main us number ke base par aapka analysis karunga.",
             sender: 'pandit',
             timestamp: new Date().toLocaleTimeString()
@@ -168,9 +269,11 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             // Mark as generating immediately to avoid duplicate triggers in Strict Mode
             hasGeneratedRef.current = true;
             if (generationTimerRef.current) clearTimeout(generationTimerRef.current);
-            generationTimerRef.current = setTimeout(() => {
+            const timerId = setTimeout(() => {
               generateKundli(details);
             }, 150);
+            generationTimerRef.current = timerId;
+            timeoutRefs.current.push(timerId);
           }
         } else {
           setCurrentStep('ask_dob');
@@ -179,16 +282,12 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
     }
   }, [userData]);
 
-  const nextMessageId = () => {
-    const id = messageIdRef.current;
-    messageIdRef.current += 1;
-    return id;
-  };
-
   // Handle refresh - clear messages and reset to initial state
-  React.useEffect(() => {
+  useEffect(() => {
     if (onRefresh) {
       const resetMessages = () => {
+        // Reset the message ID counter to avoid collisions after refresh
+        messageIdRef.current = 3;
         setMessages([
           {
             id: 1,
@@ -225,6 +324,15 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
       // Listen for refresh events
       const handleRefresh = () => {
         resetMessages();
+        // Reset timer to 3 minutes when chat is refreshed
+        setTimeRemaining(180);
+        // Clear any existing timer interval
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+        // Close feedback modal if open
+        setShowFeedbackModal(false);
       };
       
       // Store the handler so we can clean it up
@@ -237,7 +345,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
   }, [onRefresh]);
 
   // Auto-scroll to latest message
-  React.useEffect(() => {
+  useEffect(() => {
     try {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     } catch (e) {
@@ -256,7 +364,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
   }, [messages, isGeneratingKundli, isGeneratingChart, chartData]);
 
   // Auto-focus input when chat opens or bot finished typing
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen && !isBotTyping && !isGeneratingKundli) {
       try { inputRef.current?.focus(); } catch (e) {}
     }
@@ -398,7 +506,10 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         const elapsed = Date.now() - genStartTs;
         const remaining = Math.max(0, minDelayMs - elapsed);
         if (remaining > 0) {
-          await new Promise(res => setTimeout(res, remaining));
+          await new Promise(res => {
+            const id = setTimeout(res, remaining);
+            timeoutRefs.current.push(id);
+          });
         }
         setChartData(chartPayload);
         setIsGeneratingChart(false);
@@ -510,24 +621,11 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
           if (!horaryNumber) {
             botText = "Kripya 1 se 249 tak koi number batayiye. Ye number aapke question ke liye cosmic timing determine karega.";
           } else {
-            // Generate horary analysis
+            // Route horary analysis via /api/chat with horary context
             try {
-              const horaryResponse = await astroBotAPI.generateKPHorary(horaryNumber);
-              if (horaryResponse.success) {
-                const analysis = horaryResponse.analysis;
-                // Normalize horary to strict 5-line format with bullets for readability
-                const remaining = analysis.analysis.replace(/^Namaskar,[^\n]*?\.\s*/, '').trim();
-                // Use bullets for visual clarity and consistency with kundali mode
-                botText = `Namaskar, main aapka AstroRemedis ka AI Astrologer hoon.\n\n` +
-                  `- ${remaining}${remaining.endsWith('.') ? '' : '.'} Lagta hai aap is waqt thoda chintit mehsoos kar rahe hain, par result positive rahega.\n` +
-                  `- Shani prabhav me hai, isliye Shanivar ko tel daan karen. Main sirf trusted AstroRemedis remedies suggest karta hoon.\n` +
-                  `- AstroRemedis ka Maruti Yantra Kachhua apne ghar me rakhen — ye aapke liye laabhdayak hoga aur grah shanti me sahayak rahega.\n\n` +
-                  `Kya main aur detail me bataun?\n` +
-                  `Bhagwan aap par apna aashirwad sadaiv banaaye rakhen.`;
-                setCurrentStep('chatting');
-              } else {
-                botText = "Horary analysis mein koi problem aayi hai. Kripya ek aur number try karein.";
-              }
+              const reply = await generateHoraryResponse(`Horary number: ${horaryNumber}`, userProfile);
+              botText = reply;
+              setCurrentStep('chatting');
             } catch (error) {
               console.error('Horary analysis error:', error);
               botText = "Horary analysis mein koi problem aayi hai. Kripya ek aur number try karein.";
@@ -598,7 +696,10 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             };
             // Small buffer to ensure any last state changes settle
             hasGeneratedRef.current = true;
-            await new Promise(res => setTimeout(res, 150));
+            await new Promise(res => {
+              const id = setTimeout(res, 150);
+              timeoutRefs.current.push(id);
+            });
             await generateKundli(details);
             return;
           }
@@ -676,53 +777,67 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         // Clean and cap response
         const capped = limitAndCleanResponse(botText || '');
         
-        // Split response into chunks by sentences or paragraphs
-        // Preserve strict 5-line labeled format if detected
-        const splitIntoSentences = (text) => {
-          // Preserve multi-line blocks: either previously labeled formats or any bullets/newlines
-          const labeledPattern = /^(Start Line|Core Line 1|Core Line 2|Follow-up|End Line)\b/m;
-          const bulletPattern = /\n\s*-\s+/; // bullet lines present
-          if (labeledPattern.test(text) || bulletPattern.test(text) || /\n/.test(text)) {
-            // Keep as one block to avoid breaking the labeled format
-            const lines = text.split(/\n+/).filter(Boolean);
-            // Keep only the first occurrence of each label in order
-            const keepLabels = ["Start Line", "Core Line 1", "Core Line 2", "Follow-up", "End Line"]; 
-            const kept = [];
-            for (const label of keepLabels) {
-              const line = lines.find(l => l.startsWith(label));
-              if (line) kept.push(line);
-            }
-            if (kept.length > 0) {
-              const block = kept.join('\n');
-              return [block];
-            }
-            // Not labeled — keep original to preserve newlines
-            return [text];
-          }
-          const sentences = text.split(/(?<=[.!?])\s+/);
-          const chunks = [];
-          let currentChunk = '';
+        // Split response into chunks by paragraphs (aim for 3 messages)
+        const splitIntoParagraphs = (text) => {
+          if (!text) return [];
           
-          for (const sent of sentences) {
-            if ((currentChunk + sent).length < 250) {
-              currentChunk += (currentChunk ? ' ' : '') + sent;
-            } else {
-              if (currentChunk) chunks.push(currentChunk);
-              currentChunk = sent;
+          // Split by double newlines first (paragraph breaks)
+          let paragraphs = text.split(/\n\s*\n+/).filter(p => p.trim().length > 0);
+          
+          // If no double newlines, try splitting by single newlines
+          if (paragraphs.length === 1) {
+            paragraphs = text.split(/\n+/).filter(p => p.trim().length > 0);
+          }
+          
+          // If still only one paragraph, try intelligent splitting by sentences
+          if (paragraphs.length === 1 && text.length > 150) {
+            // Split by sentence endings (period, exclamation, question mark) followed by space
+            const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+            
+            if (sentences.length > 1) {
+              // Group sentences into ~3 chunks (aim for 3 messages)
+              const targetChunks = 3;
+              const chunkSize = Math.ceil(sentences.length / targetChunks);
+              paragraphs = [];
+              for (let i = 0; i < sentences.length; i += chunkSize) {
+                const chunk = sentences.slice(i, i + chunkSize).join(' ').trim();
+                if (chunk) paragraphs.push(chunk);
+              }
             }
           }
-          if (currentChunk) chunks.push(currentChunk);
           
-          return chunks.length > 0 ? chunks : [text];
+          // Ensure we have at least 1 and at most 3 chunks
+          if (paragraphs.length === 0) {
+            paragraphs = [text];
+          } else if (paragraphs.length > 3) {
+            // Merge excess paragraphs into the last one
+            const lastParagraph = paragraphs.slice(2).join('\n\n');
+            paragraphs = [...paragraphs.slice(0, 2), lastParagraph];
+          } else if (paragraphs.length === 1 && text.length > 300) {
+            // Force split long single paragraph into 3 roughly equal parts
+            const thirdLength = Math.ceil(text.length / 3);
+            const firstBreak = text.lastIndexOf('.', thirdLength);
+            const secondBreak = text.lastIndexOf('.', thirdLength * 2);
+            
+            if (firstBreak > 0 && secondBreak > firstBreak) {
+              paragraphs = [
+                text.substring(0, firstBreak + 1).trim(),
+                text.substring(firstBreak + 1, secondBreak + 1).trim(),
+                text.substring(secondBreak + 1).trim()
+              ];
+            }
+          }
+          
+          return paragraphs.filter(p => p.trim().length > 0);
         };
         
-        const parts = splitIntoSentences(capped).slice(0, 4); // Max 4 chunks
+        const parts = splitIntoParagraphs(capped);
         
         const sendChunk = async (idx) => {
           if (idx >= parts.length) return;
           
-          // Show typing indicator for 1.5-2.5 seconds before each chunk (randomized for natural feel)
-          const typingDelay = 1500 + Math.random() * 1000; // 1.5s to 2.5s
+          // Show typing indicator for 1-2 seconds before each chunk (randomized for natural feel)
+          const typingDelay = 1000 + Math.random() * 1000; // 1s to 2s
           const typingMsg = {
             id: nextMessageId(),
             text: '',
@@ -731,7 +846,10 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             isTyping: true
           };
           setMessages(prev => ([...prev, typingMsg]));
-          await new Promise(r => setTimeout(r, typingDelay));
+          await new Promise(r => {
+            const id = setTimeout(r, typingDelay);
+            timeoutRefs.current.push(id);
+          });
           
           // Replace typing bubble with actual chunk
           setMessages(prev => {
@@ -744,7 +862,11 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             }];
           });
           
-          // Continue with next chunk
+          // Continue with next chunk (with a small delay between messages)
+          await new Promise(r => {
+            const id = setTimeout(r, 300); // 300ms gap between messages
+            timeoutRefs.current.push(id);
+          });
           await sendChunk(idx + 1);
         };
         
@@ -777,10 +899,94 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
     }
   };
 
+  // ===== TIMER HELPER FUNCTION =====
+  /**
+   * Formats seconds into MM:SS format for display
+   * 
+   * @param {number} seconds - Total seconds remaining
+   * @returns {string} Formatted time string (e.g., "03:00", "02:45", "00:30")
+   * 
+   * Example:
+   * - formatTime(180) => "03:00"
+   * - formatTime(45) => "00:45"
+   * - formatTime(0) => "00:00"
+   */
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // ===== FEEDBACK HANDLERS =====
+  /**
+   * Handles feedback modal close
+   * Closes the feedback modal and then closes the chat
+   */
+  const handleFeedbackClose = () => {
+    setShowFeedbackModal(false);
+    // Close chat after feedback modal is closed
+    if (onClose) {
+      setTimeout(() => {
+        onClose();
+      }, 300); // Small delay for smooth transition
+    }
+  };
+
+  /**
+   * Handles feedback submission
+   * Logs feedback data and can be extended to send to backend API
+   * 
+   * @param {Object} feedbackData - Feedback data object
+   * @param {number} feedbackData.rating - User rating (1-5)
+   * @param {string} feedbackData.feedback - Additional feedback text
+   * @param {string} feedbackData.timestamp - ISO timestamp
+   */
+  const handleFeedbackSubmit = async (feedbackData) => {
+    try {
+      // Get user name from userData or userProfile to link feedback to form submission
+      const userName = userData?.name || userProfile?.name || '';
+      
+      // Add user name to feedback data so it can be linked to the form submission
+      const feedbackWithUser = {
+        ...feedbackData,
+        user_name: userName
+      };
+      
+      // Send feedback to backend API (which saves to Google Sheets)
+      await astroBotAPI.submitFeedback(feedbackWithUser);
+      
+      console.log('Feedback submitted successfully to Google Sheets!');
+      
+      // Close feedback modal and chat
+      setShowFeedbackModal(false);
+      if (onClose) {
+        setTimeout(() => {
+          onClose();
+        }, 300);
+      }
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      throw error; // Re-throw to let modal handle the error
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className={`expandable-chat-container ${isOpen ? 'expanded' : ''}`}>
+      {/* ===== TIMER WIDGET - CORNER DISPLAY =====
+          Displays the countdown timer in the top-right corner
+          - Shows remaining time in MM:SS format
+          - Changes to warning style (red) when <= 30 seconds remain
+          - Only visible when chat is open
+      */}
+      {isOpen && (
+        <div className={`chat-timer-widget ${timeRemaining <= 30 ? 'warning' : ''}`}>
+          <div className="timer-icon">⏱️</div>
+          <div className="timer-text">{formatTime(timeRemaining)}</div>
+        </div>
+      )}
+
       {/* Chat Header */}
       <div className="chat-header">
         <div className="pandit-info">
@@ -878,8 +1084,19 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
           {/* Removed Edit details button per request */}
         </div>
       </div>
+
+      {/* ===== FEEDBACK MODAL =====
+          Shows feedback popup when timer expires
+          Collects user rating and additional feedback
+      */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={handleFeedbackClose}
+        onSubmit={handleFeedbackSubmit}
+      />
     </div>
   );
 };
 
-export default ExpandableChat;
+// Memoize component to prevent unnecessary re-renders
+export default React.memo(ExpandableChat);

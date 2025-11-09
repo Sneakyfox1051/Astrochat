@@ -118,14 +118,18 @@ GOOGLE_SHEETS_SPREADSHEET_NAME = os.getenv('GOOGLE_SHEETS_SPREADSHEET_NAME', 'As
 GOOGLE_SHEETS_WORKSHEET_NAME = os.getenv('GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')
 
 try:
-    from google_sheets import append_form_submission, diagnose_connection
+    from google_sheets import append_form_submission, append_feedback_submission, update_row_with_feedback, diagnose_connection
     # Only enable if credentials are available
     if not os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON') and not os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE'):
         append_form_submission = None
+        append_feedback_submission = None
+        update_row_with_feedback = None
         diagnose_connection = None
         logger.info("Google Sheets integration disabled - no credentials found")
 except Exception as _e:
     append_form_submission = None
+    append_feedback_submission = None
+    update_row_with_feedback = None
     diagnose_connection = None
     logger.warning(f"Google Sheets integration not available: {_e}")
 
@@ -581,7 +585,8 @@ class EnhancedAstroBotAPI:
         access_token = self.get_access_token()
         if not access_token:
             logger.error("ProKerala API credentials not available; cannot fetch chart data")
-            return None
+            logger.error("Please check PROKERALA_CLIENT_ID and PROKERALA_CLIENT_SECRET in .env file")
+            raise ValueError("ProKerala API credentials not configured. Please check your .env file.")
 
         try:
             # Create localized datetime
@@ -677,7 +682,8 @@ class EnhancedAstroBotAPI:
         # Critical check: planet positions are required for chart calculation
         if not api_data.get('planet_positions'):
             logger.error("Planet positions are required but could not be fetched")
-            return None
+            logger.error("This usually means ProKerala API call failed. Check API credentials and network connection.")
+            raise ValueError("Failed to fetch planet positions from ProKerala API. Please check API credentials and try again.")
 
         # Process Data into CHART_DATA format
         planets_in_house = {}
@@ -1300,6 +1306,8 @@ def generate_kundli():
         # Calculate comprehensive chart data with error handling
         try:
             logger.info("Starting chart data calculation...")
+            logger.info(f"Parameters: name={birth_data['name']}, dob={birth_data['dob_date']}, tob={birth_data['tob_time']}, place={birth_data['place']}")
+            
             chart_data = astro_api.calculate_chart_data(
                 birth_data['name'],
                 birth_data['dob_date'],
@@ -1309,14 +1317,24 @@ def generate_kundli():
                 longitude,
                 birth_data['timezone']
             )
-            logger.info("Chart data calculation completed")
+            
+            if chart_data is None:
+                logger.error("calculate_chart_data returned None - check ProKerala API credentials and connection")
+                return jsonify({
+                    "error": "Failed to generate Kundli chart data",
+                    "message": "Chart calculation returned no data. Please check ProKerala API credentials."
+                }), 500
+                
+            logger.info("Chart data calculation completed successfully")
         except Exception as calc_error:
             logger.error(f"Error calculating chart data: {calc_error}")
             import traceback
-            logger.error(traceback.format_exc())
+            error_trace = traceback.format_exc()
+            logger.error(f"Full traceback:\n{error_trace}")
             return jsonify({
                 "error": "Failed to generate Kundli chart data",
-                "message": str(calc_error)
+                "message": str(calc_error),
+                "details": error_trace.split('\n')[-5:] if len(error_trace) > 5 else error_trace
             }), 500
 
         if not chart_data:
@@ -1648,6 +1666,10 @@ def analyze_kundli():
             "message": str(e)
         }), 500
 
+# In-memory cache to prevent duplicate submissions (lasts for 5 seconds)
+_form_submission_cache = {}
+_form_submission_lock = {}
+
 @app.route('/api/form-submit', methods=['POST'])
 def form_submit():
     """Append form submission to Google Sheet (optional)."""
@@ -1658,6 +1680,29 @@ def form_submit():
         if missing:
             return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
 
+        # Create a unique key for this submission to prevent duplicates
+        submission_key = f"{payload['name']}_{payload['dob']}_{payload['tob']}_{payload['place']}"
+        current_time = datetime.now()
+        
+        # Check if this exact submission was made in the last 5 seconds
+        if submission_key in _form_submission_cache:
+            last_submission_time = _form_submission_cache[submission_key]
+            time_diff = (current_time - last_submission_time).total_seconds()
+            if time_diff < 5:  # Within 5 seconds
+                logger.warning(f"Duplicate form submission detected for {payload['name']}, ignoring")
+                return jsonify({"success": True, "message": "Form submitted successfully (duplicate ignored)"})
+        
+        # Store this submission with current timestamp
+        _form_submission_cache[submission_key] = current_time
+        # Clean up old entries (older than 10 seconds)
+        keys_to_remove = [k for k, v in _form_submission_cache.items() 
+                         if (current_time - v).total_seconds() > 10]
+        for k in keys_to_remove:
+            del _form_submission_cache[k]
+
+        # Format timestamp as readable date/time string (YYYY-MM-DD HH:MM:SS)
+        timestamp_str = current_time.strftime('%Y-%m-%d %H:%M:%S')
+
         # Try to append to Google Sheet (optional - not critical for core functionality)
         if append_form_submission is not None:
             try:
@@ -1665,12 +1710,15 @@ def form_submit():
                     spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
                     worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
                     row_data=[
-                        datetime.now().isoformat(),
-                        payload['name'],
-                        payload['dob'],
-                        payload['tob'],
-                        payload['place'],
-                        payload.get('timezone', 'Asia/Kolkata')
+                        timestamp_str,  # Timestamp in readable format
+                        payload['name'],  # Name
+                        payload['dob'],  # Date of Birth
+                        payload['tob'],  # Time of Birth
+                        payload['place'],  # Place
+                        payload.get('timezone', 'Asia/Kolkata'),  # Timezone
+                        payload.get('mode', 'kundli'),  # Mode (kundli or horary)
+                        '',  # Rating (empty for form-only rows)
+                        ''  # Feedback Text (empty)
                     ]
                 )
                 logger.info("Form data successfully saved to Google Sheets")
@@ -1716,6 +1764,106 @@ def sheets_diagnose():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+@app.route('/api/feedback-submit', methods=['POST'])
+def feedback_submit():
+    """
+    Append feedback submission to Google Sheet.
+    
+    Stores user feedback (rating and comments) after chat session ends.
+    This endpoint is called when the user submits feedback from the feedback modal.
+    
+    Request Body:
+        - rating (int, required): User rating (1-5)
+        - feedback (str, optional): Additional feedback text
+        - timestamp (str, optional): ISO timestamp (auto-generated if not provided)
+    
+    Returns:
+        JSON: Success or error message
+    """
+    try:
+        payload = request.get_json() or {}
+        
+        # Validate required fields
+        rating = payload.get('rating')
+        if not rating or not isinstance(rating, int) or rating < 1 or rating > 5:
+            return jsonify({"error": "Rating is required and must be between 1 and 5"}), 400
+        
+        feedback_text = payload.get('feedback', '').strip()
+        user_name = payload.get('user_name', '').strip()
+        # Format timestamp as readable date/time string (YYYY-MM-DD HH:MM:SS)
+        timestamp = payload.get('timestamp')
+        if timestamp:
+            try:
+                # Parse ISO timestamp and convert to readable format
+                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                timestamp_str = dt.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                timestamp_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            timestamp_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Try to update existing form row or append to Google Sheet
+        if update_row_with_feedback is not None and user_name:
+            try:
+                # Try to update the most recent form submission row for this user
+                update_row_with_feedback(
+                    spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
+                    worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
+                    user_name=user_name,
+                    rating=str(rating),
+                    feedback_text=feedback_text or 'N/A'
+                )
+                logger.info(f"Feedback data successfully updated in Google Sheets for user {user_name} (Rating: {rating})")
+            except Exception as sheets_error:
+                logger.warning(f"Failed to update row with feedback, trying append: {sheets_error}")
+                # Fallback to appending if update fails
+                if append_form_submission is not None:
+                    try:
+                        append_form_submission(
+                            spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
+                            worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
+                            row_data=[
+                                timestamp_str,
+                                user_name,
+                                '', '', '', '', '',  # Empty form fields
+                                str(rating),
+                                feedback_text or 'N/A'
+                            ]
+                        )
+                        logger.info(f"Feedback data appended to Google Sheets (Rating: {rating})")
+                    except Exception as append_error:
+                        logger.warning(f"Google Sheets integration failed for feedback: {append_error}")
+        elif append_form_submission is not None:
+            # No user name provided, just append
+            try:
+                append_form_submission(
+                    spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
+                    worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
+                    row_data=[
+                        timestamp_str,
+                        user_name or '',  # Use provided name or empty
+                        '', '', '', '', '',  # Empty form fields
+                        str(rating),
+                        feedback_text or 'N/A'
+                    ]
+                )
+                logger.info(f"Feedback data appended to Google Sheets (Rating: {rating})")
+            except Exception as sheets_error:
+                logger.warning(f"Google Sheets integration failed for feedback: {sheets_error}")
+        else:
+            logger.info("Google Sheets integration not configured - skipping feedback storage")
+        
+        return jsonify({
+            "success": True, 
+            "message": "Feedback submitted successfully"
+        })
+    except HttpError as he:
+        logger.error(f"Google Sheets API error: {he}")
+        return jsonify({"error": "Google Sheets API error", "message": str(he)}), 500
+    except Exception as e:
+        logger.error(f"Error in feedback-submit endpoint: {e}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
 if __name__ == '__main__':
     # Check configuration
     if not PROKERALA_CLIENT_ID or not PROKERALA_CLIENT_SECRET:
@@ -1725,11 +1873,15 @@ if __name__ == '__main__':
         logger.warning("OpenAI API key not found - RAG features will be limited")
 
     logger.info("Starting Enhanced AstroBot Backend Server...")
+    logger.info("Server will start on http://127.0.0.1:5000")
+    logger.info("Press CTRL+C to stop the server")
+    
     # LOCAL DEVELOPMENT - Commented out for deployment
-    # For local testing, uncomment the line below:
+    # For local testing, uncomment this line:
     # app.run(debug=True, host='0.0.0.0', port=5000)
     
     # PRODUCTION DEPLOYMENT
     # The app is deployed on Render.com and uses Gunicorn (see Procfile)
     # Backend URL: https://astroremedis.onrender.com
+    # Gunicorn is configured via Procfile for production deployment
     pass
