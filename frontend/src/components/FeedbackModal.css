@@ -57,10 +57,16 @@
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
   animation: slideUp 0.3s ease-out;
   border: 1px solid rgba(228, 107, 0, 0.35);
   backdrop-filter: blur(14px) saturate(120%);
   -webkit-backdrop-filter: blur(14px) saturate(120%);
+  /* Ensure smooth scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+  /* Ensure footer is always accessible */
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes slideUp {
@@ -129,6 +135,10 @@
 /* ===== MODAL BODY ===== */
 .feedback-modal-body {
   padding: 30px;
+  flex: 1;
+  overflow-y: auto;
+  /* Ensure smooth scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ===== RATING SECTION ===== */
@@ -286,6 +296,18 @@
   justify-content: flex-end;
   gap: 15px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  /* Ensure footer stays at bottom and is always visible */
+  flex-shrink: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 15, 35, 0.35) 0%,
+    rgba(26, 26, 46, 0.28) 100%
+  );
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
 }
 
 /* Skip Button */
@@ -347,10 +369,12 @@
   .feedback-modal-container {
     max-width: 100%;
     margin: 10px;
+    max-height: 95vh;
   }
 
   .feedback-modal-header {
     padding: 20px 20px 15px;
+    flex-shrink: 0;
   }
 
   .feedback-modal-header h2 {
@@ -359,11 +383,15 @@
 
   .feedback-modal-body {
     padding: 20px;
+    /* Reduce padding on mobile to allow more content */
+    padding-bottom: 10px;
   }
 
   .feedback-modal-footer {
     padding: 15px 20px 20px;
     flex-direction: column;
+    /* Ensure footer padding accounts for safe area on iOS */
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   }
 
   .feedback-skip-btn,
@@ -378,6 +406,7 @@
   .feedback-contact-section {
     padding: 15px;
     margin-top: 20px;
+    margin-bottom: 10px;
   }
 
   .contact-text {
@@ -389,6 +418,12 @@
     font-size: 14px;
     width: 100%;
     justify-content: center;
+  }
+  
+  /* Ensure textarea doesn't take too much space on mobile */
+  .feedback-textarea {
+    min-height: 100px;
+    max-height: 150px;
   }
 }
 

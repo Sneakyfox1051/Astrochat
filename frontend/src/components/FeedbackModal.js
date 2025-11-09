@@ -201,7 +201,7 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit }) => {
           {/* Contact Section */}
           <div className="feedback-contact-section">
             <p className="contact-text">
-              Zyada advice ke liye hamare professional astrologist se sampark karein:
+              Agar aapko aur guidance chahiye, to hamare professional astrologist se sampark karein:
             </p>
             <a 
               href="https://wa.me/919010356000" 
