@@ -197,6 +197,22 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit }) => {
               {feedback.length}/500 characters
             </div>
           </div>
+
+          {/* Contact Section */}
+          <div className="feedback-contact-section">
+            <p className="contact-text">
+              Zyada advice ke liye hamare professional astrologist se sampark karein:
+            </p>
+            <a 
+              href="https://wa.me/919010356000" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="whatsapp-contact-link"
+            >
+              <span className="whatsapp-icon">💬</span>
+              <span className="whatsapp-number">+91 9010356000</span>
+            </a>
+          </div>
         </div>
 
         {/* Modal Footer */}

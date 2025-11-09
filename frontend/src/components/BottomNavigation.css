@@ -1,15 +1,19 @@
 .bottom-navigation {
   position: fixed;
-  bottom: 0;
+  /* Account for iOS safe area (home indicator) */
+  bottom: var(--safe-area-inset-bottom, 0);
   left: 0;
   right: 0;
   height: 108px; /* taller to fit powered-by row */
+  /* Add safe area padding to height on iOS */
+  height: calc(108px + var(--safe-area-inset-bottom, 0px));
   background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
   display: flex;
   flex-direction: column; /* two rows */
   align-items: stretch;
   justify-content: flex-start;
-  padding: 0 0 8px 0;
+  /* Add safe area padding for iOS home indicator */
+  padding: 0 var(--safe-area-inset-left, 0) calc(8px + var(--safe-area-inset-bottom, 0px)) var(--safe-area-inset-right, 0);
   z-index: 100;
   box-shadow: 
     0 -8px 32px rgba(0, 0, 0, 0.3),
@@ -211,8 +215,8 @@
 /* Responsive adjustments */
 @media (max-width: 480px) {
   .bottom-navigation {
-    height: 70px;
-    padding: 0 1rem;
+    height: calc(70px + var(--safe-area-inset-bottom, 0px));
+    padding: 0 calc(1rem + var(--safe-area-inset-left, 0px)) calc(8px + var(--safe-area-inset-bottom, 0px)) calc(1rem + var(--safe-area-inset-right, 0px));
   }
   .nav-icon {
     width: 45px;

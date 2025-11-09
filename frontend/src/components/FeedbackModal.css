@@ -228,6 +228,57 @@
   margin-top: 5px;
 }
 
+/* ===== CONTACT SECTION ===== */
+.feedback-contact-section {
+  margin-top: 30px;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(228, 107, 0, 0.1) 0%, rgba(228, 107, 0, 0.05) 100%);
+  border: 1px solid rgba(228, 107, 0, 0.2);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.contact-text {
+  color: #b8c5d6;
+  font-size: 14px;
+  margin: 0 0 15px;
+  line-height: 1.5;
+}
+
+.whatsapp-contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.whatsapp-contact-link:hover {
+  background: linear-gradient(135deg, #128C7E 0%, #25D366 100%);
+  box-shadow: 0 6px 20px rgba(37, 211, 102, 0.5);
+  transform: translateY(-2px);
+}
+
+.whatsapp-contact-link:active {
+  transform: translateY(0);
+}
+
+.whatsapp-icon {
+  font-size: 20px;
+  display: inline-block;
+}
+
+.whatsapp-number {
+  display: inline-block;
+}
+
 /* ===== MODAL FOOTER ===== */
 .feedback-modal-footer {
   padding: 20px 30px 30px;
@@ -322,6 +373,22 @@
 
   .star-button {
     font-size: 35px;
+  }
+
+  .feedback-contact-section {
+    padding: 15px;
+    margin-top: 20px;
+  }
+
+  .contact-text {
+    font-size: 13px;
+  }
+
+  .whatsapp-contact-link {
+    padding: 10px 20px;
+    font-size: 14px;
+    width: 100%;
+    justify-content: center;
   }
 }
 

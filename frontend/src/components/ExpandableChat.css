@@ -15,7 +15,8 @@
 /* Expandable Chat Container */
 .expandable-chat-container {
   position: fixed;
-  bottom: 80px; /* Above the bottom navigation */
+  /* Account for bottom navigation + iOS safe area */
+  bottom: calc(80px + var(--safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
   height: 0;
@@ -31,7 +32,8 @@
 
 /* Expanded state - extends to header */
 .expandable-chat-container.expanded {
-  height: calc(100vh - 170px); /* Full height minus header (90px) and bottom nav (80px) */
+  /* Full height minus header (90px), bottom nav (80px), and iOS safe areas */
+  height: calc(100vh - 170px - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px));
 }
 
 /* Chat Header */
@@ -283,8 +285,14 @@
 
 /* Responsive Design */
 @media (max-width: 480px) {
+  .expandable-chat-container {
+    /* Account for smaller bottom nav on mobile + iOS safe area */
+    bottom: calc(70px + var(--safe-area-inset-bottom, 0px));
+  }
+  
   .expandable-chat-container.expanded {
-    height: calc(100vh - 150px); /* Full height minus header and bottom nav on mobile */
+    /* Full height minus header, bottom nav, and iOS safe areas on mobile */
+    height: calc(100vh - 150px - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px));
   }
   
   .chat-header {

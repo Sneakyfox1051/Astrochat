@@ -4,6 +4,14 @@
   box-sizing: border-box;
 }
 
+/* iOS Safe Area Support - CSS Variables for safe area insets */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -11,11 +19,23 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: #f8f9fa;
+  /* Prevent iOS bounce scrolling */
+  overscroll-behavior: none;
+  /* Prevent text size adjustment on iOS */
+  -webkit-text-size-adjust: 100%;
+  /* Support for safe areas on iOS - only horizontal padding to avoid double padding */
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+  margin: 0;
 }
 
 #root {
   width: 100%;
   height: 100vh;
+  /* Use CSS variable for safe area bottom on iOS */
+  height: calc(100vh - var(--safe-area-inset-bottom));
   overflow: hidden;
+  /* Ensure root respects safe areas */
+  padding-bottom: var(--safe-area-inset-bottom);
 }
 
