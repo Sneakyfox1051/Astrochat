@@ -440,7 +440,6 @@ class AstroBotAPI {
    * @param {Object} feedbackData - Feedback data object
    * @param {number} feedbackData.rating - User rating (1-5)
    * @param {string} feedbackData.feedback - Additional feedback text
-   * @param {string} feedbackData.user_name - User's name to link feedback to form (optional)
    * @param {string} feedbackData.timestamp - ISO timestamp (optional)
    * @returns {Promise<Object>} API response
    */
@@ -454,7 +453,6 @@ class AstroBotAPI {
         body: JSON.stringify({
           rating: feedbackData.rating,
           feedback: feedbackData.feedback || '',
-          user_name: feedbackData.user_name || '',
           timestamp: feedbackData.timestamp || new Date().toISOString()
         }),
       });

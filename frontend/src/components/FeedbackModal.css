@@ -55,18 +55,18 @@
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
   max-width: 500px;
   width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+  max-height: 85vh;
+  height: auto;
+  overflow: hidden;
   animation: slideUp 0.3s ease-out;
   border: 1px solid rgba(228, 107, 0, 0.35);
   backdrop-filter: blur(14px) saturate(120%);
   -webkit-backdrop-filter: blur(14px) saturate(120%);
-  /* Ensure smooth scrolling on iOS */
-  -webkit-overflow-scrolling: touch;
   /* Ensure footer is always accessible */
   display: flex;
   flex-direction: column;
+  /* Ensure container respects max-height */
+  min-height: 0;
 }
 
 @keyframes slideUp {
@@ -86,6 +86,8 @@
   text-align: center;
   position: relative;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  /* Header should not shrink */
+  flex-shrink: 0;
 }
 
 .feedback-modal-header h2 {
@@ -135,10 +137,37 @@
 /* ===== MODAL BODY ===== */
 .feedback-modal-body {
   padding: 30px;
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
+  overflow-x: hidden;
+  /* Critical: min-height 0 allows flex item to shrink below content size */
+  min-height: 0;
   /* Ensure smooth scrolling on iOS */
   -webkit-overflow-scrolling: touch;
+  /* Add extra padding at bottom to ensure content doesn't get cut off */
+  padding-bottom: 40px;
+  /* Ensure scrollbar is visible */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(228, 107, 0, 0.3) rgba(255, 255, 255, 0.1);
+}
+
+/* Custom scrollbar styling for webkit browsers */
+.feedback-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.feedback-modal-body::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.feedback-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(228, 107, 0, 0.4);
+  border-radius: 3px;
+}
+
+.feedback-modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(228, 107, 0, 0.6);
 }
 
 /* ===== RATING SECTION ===== */
@@ -291,61 +320,39 @@
 
 /* ===== MODAL FOOTER ===== */
 .feedback-modal-footer {
-  padding: 20px 30px 30px;
+  padding: 20px 30px;
   display: flex;
-  justify-content: flex-end;
-  gap: 15px;
+  justify-content: center;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  /* Ensure footer stays at bottom and is always visible */
+  /* Ensure footer stays at bottom and is always visible - never shrinks */
   flex-shrink: 0;
+  flex-grow: 0;
   background: linear-gradient(
     135deg,
-    rgba(15, 15, 35, 0.35) 0%,
-    rgba(26, 26, 46, 0.28) 100%
+    rgba(15, 15, 35, 0.95) 0%,
+    rgba(26, 26, 46, 0.95) 100%
   );
   backdrop-filter: blur(14px) saturate(120%);
   -webkit-backdrop-filter: blur(14px) saturate(120%);
-  position: sticky;
-  bottom: 0;
+  /* Footer is always at bottom, not sticky - positioned outside scrollable area */
+  position: relative;
   z-index: 10;
-}
-
-/* Skip Button */
-.feedback-skip-btn {
-  padding: 12px 24px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #b8c5d6;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.feedback-skip-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-}
-
-.feedback-skip-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Submit Button */
 .feedback-submit-btn {
-  padding: 12px 24px;
+  padding: 14px 32px;
   background: linear-gradient(135deg, #e46b00 0%, #ff8800 100%);
   border: none;
   border-radius: 8px;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 4px 12px rgba(228, 107, 0, 0.3);
+  width: 100%;
+  max-width: 300px;
 }
 
 .feedback-submit-btn:hover:not(:disabled) {
@@ -369,7 +376,7 @@
   .feedback-modal-container {
     max-width: 100%;
     margin: 10px;
-    max-height: 95vh;
+    max-height: 76vh;
   }
 
   .feedback-modal-header {
@@ -383,20 +390,21 @@
 
   .feedback-modal-body {
     padding: 20px;
-    /* Reduce padding on mobile to allow more content */
-    padding-bottom: 10px;
+    /* Add extra padding at bottom on mobile to ensure content doesn't get cut off */
+    padding-bottom: 30px;
   }
 
   .feedback-modal-footer {
-    padding: 15px 20px 20px;
-    flex-direction: column;
+    padding: 15px 20px;
     /* Ensure footer padding accounts for safe area on iOS */
-    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
   }
 
-  .feedback-skip-btn,
   .feedback-submit-btn {
     width: 100%;
+    max-width: 100%;
+    padding: 14px 24px;
+    font-size: 15px;
   }
 
   .star-button {

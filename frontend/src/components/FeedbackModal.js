@@ -46,6 +46,15 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit }) => {
       setHoveredRating(0);
       setFeedback('');
       setIsSubmitting(false);
+      
+      // Auto-scroll to top of modal body when it opens
+      // This ensures content starts from the beginning
+      setTimeout(() => {
+        const modalBody = document.querySelector('.feedback-modal-body');
+        if (modalBody) {
+          modalBody.scrollTop = 0;
+        }
+      }, 100);
     }
   }, [isOpen]);
 
@@ -116,13 +125,6 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit }) => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  /**
-   * Handles skip button - closes modal without submitting
-   */
-  const handleSkip = () => {
-    onClose();
   };
 
   // Don't render if modal is not open
@@ -215,15 +217,8 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit }) => {
           </div>
         </div>
 
-        {/* Modal Footer */}
+        {/* Modal Footer - Outside scrollable body */}
         <div className="feedback-modal-footer">
-          <button
-            className="feedback-skip-btn"
-            onClick={handleSkip}
-            disabled={isSubmitting}
-          >
-            Skip
-          </button>
           <button
             className="feedback-submit-btn"
             onClick={handleSubmit}

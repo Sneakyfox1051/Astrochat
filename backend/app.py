@@ -118,18 +118,16 @@ GOOGLE_SHEETS_SPREADSHEET_NAME = os.getenv('GOOGLE_SHEETS_SPREADSHEET_NAME', 'As
 GOOGLE_SHEETS_WORKSHEET_NAME = os.getenv('GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')
 
 try:
-    from google_sheets import append_form_submission, append_feedback_submission, update_row_with_feedback, diagnose_connection
+    from google_sheets import append_form_submission, append_feedback_submission, diagnose_connection
     # Only enable if credentials are available
     if not os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON') and not os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE'):
         append_form_submission = None
         append_feedback_submission = None
-        update_row_with_feedback = None
         diagnose_connection = None
         logger.info("Google Sheets integration disabled - no credentials found")
 except Exception as _e:
     append_form_submission = None
     append_feedback_submission = None
-    update_row_with_feedback = None
     diagnose_connection = None
     logger.warning(f"Google Sheets integration not available: {_e}")
 
@@ -1666,10 +1664,6 @@ def analyze_kundli():
             "message": str(e)
         }), 500
 
-# In-memory cache to prevent duplicate submissions (lasts for 5 seconds)
-_form_submission_cache = {}
-_form_submission_lock = {}
-
 @app.route('/api/form-submit', methods=['POST'])
 def form_submit():
     """Append form submission to Google Sheet (optional)."""
@@ -1680,29 +1674,6 @@ def form_submit():
         if missing:
             return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
 
-        # Create a unique key for this submission to prevent duplicates
-        submission_key = f"{payload['name']}_{payload['dob']}_{payload['tob']}_{payload['place']}"
-        current_time = datetime.now()
-        
-        # Check if this exact submission was made in the last 5 seconds
-        if submission_key in _form_submission_cache:
-            last_submission_time = _form_submission_cache[submission_key]
-            time_diff = (current_time - last_submission_time).total_seconds()
-            if time_diff < 5:  # Within 5 seconds
-                logger.warning(f"Duplicate form submission detected for {payload['name']}, ignoring")
-                return jsonify({"success": True, "message": "Form submitted successfully (duplicate ignored)"})
-        
-        # Store this submission with current timestamp
-        _form_submission_cache[submission_key] = current_time
-        # Clean up old entries (older than 10 seconds)
-        keys_to_remove = [k for k, v in _form_submission_cache.items() 
-                         if (current_time - v).total_seconds() > 10]
-        for k in keys_to_remove:
-            del _form_submission_cache[k]
-
-        # Format timestamp as readable date/time string (YYYY-MM-DD HH:MM:SS)
-        timestamp_str = current_time.strftime('%Y-%m-%d %H:%M:%S')
-
         # Try to append to Google Sheet (optional - not critical for core functionality)
         if append_form_submission is not None:
             try:
@@ -1710,7 +1681,7 @@ def form_submit():
                     spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
                     worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
                     row_data=[
-                        timestamp_str,  # Timestamp in readable format
+                        datetime.now().isoformat(),  # Timestamp
                         payload['name'],  # Name
                         payload['dob'],  # Date of Birth
                         payload['tob'],  # Time of Birth
@@ -1789,67 +1760,31 @@ def feedback_submit():
             return jsonify({"error": "Rating is required and must be between 1 and 5"}), 400
         
         feedback_text = payload.get('feedback', '').strip()
-        user_name = payload.get('user_name', '').strip()
-        # Format timestamp as readable date/time string (YYYY-MM-DD HH:MM:SS)
-        timestamp = payload.get('timestamp')
-        if timestamp:
-            try:
-                # Parse ISO timestamp and convert to readable format
-                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                timestamp_str = dt.strftime('%Y-%m-%d %H:%M:%S')
-            except:
-                timestamp_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        else:
-            timestamp_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = payload.get('timestamp', datetime.now().isoformat())
         
-        # Try to update existing form row or append to Google Sheet
-        if update_row_with_feedback is not None and user_name:
+        # Try to append to Google Sheet (optional - not critical for core functionality)
+        if append_form_submission is not None:
             try:
-                # Try to update the most recent form submission row for this user
-                update_row_with_feedback(
-                    spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
-                    worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
-                    user_name=user_name,
-                    rating=str(rating),
-                    feedback_text=feedback_text or 'N/A'
-                )
-                logger.info(f"Feedback data successfully updated in Google Sheets for user {user_name} (Rating: {rating})")
-            except Exception as sheets_error:
-                logger.warning(f"Failed to update row with feedback, trying append: {sheets_error}")
-                # Fallback to appending if update fails
-                if append_form_submission is not None:
-                    try:
-                        append_form_submission(
-                            spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
-                            worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
-                            row_data=[
-                                timestamp_str,
-                                user_name,
-                                '', '', '', '', '',  # Empty form fields
-                                str(rating),
-                                feedback_text or 'N/A'
-                            ]
-                        )
-                        logger.info(f"Feedback data appended to Google Sheets (Rating: {rating})")
-                    except Exception as append_error:
-                        logger.warning(f"Google Sheets integration failed for feedback: {append_error}")
-        elif append_form_submission is not None:
-            # No user name provided, just append
-            try:
+                # Use the same worksheet as form data
                 append_form_submission(
                     spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
                     worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
                     row_data=[
-                        timestamp_str,
-                        user_name or '',  # Use provided name or empty
-                        '', '', '', '', '',  # Empty form fields
-                        str(rating),
-                        feedback_text or 'N/A'
+                        timestamp,  # Timestamp
+                        '',  # Name (empty for feedback-only rows)
+                        '',  # Date of Birth (empty)
+                        '',  # Time of Birth (empty)
+                        '',  # Place (empty)
+                        '',  # Timezone (empty)
+                        '',  # Mode (empty)
+                        str(rating),  # Rating
+                        feedback_text or 'N/A'  # Feedback Text
                     ]
                 )
-                logger.info(f"Feedback data appended to Google Sheets (Rating: {rating})")
+                logger.info(f"Feedback data successfully saved to Google Sheets (Rating: {rating})")
             except Exception as sheets_error:
                 logger.warning(f"Google Sheets integration failed for feedback: {sheets_error}")
+            # Continue without Google Sheets - not critical
         else:
             logger.info("Google Sheets integration not configured - skipping feedback storage")
         
@@ -1884,4 +1819,5 @@ if __name__ == '__main__':
     # The app is deployed on Render.com and uses Gunicorn (see Procfile)
     # Backend URL: https://astroremedis.onrender.com
     # Gunicorn is configured via Procfile for production deployment
+    # For production, comment out the app.run() line above
     pass
