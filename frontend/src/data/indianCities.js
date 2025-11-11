@@ -131,3 +131,4 @@ export const filterCities = (query, maxResults = 10) => {
   return matches.slice(0, maxResults);
 };
 
+

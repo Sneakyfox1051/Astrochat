@@ -1,6 +1,6 @@
 # Core Flask dependencies
 Flask==2.3.3
-Flask-CORS==4.0.0
+Flask-CORS>=6.0.0
 
 # HTTP requests and API calls
 requests==2.31.0
@@ -14,18 +14,10 @@ geopy==2.4.0
 # AI and OpenAI integration
 openai>=1.6.1,<2.0.0
 
-# LangChain for RAG (Retrieval Augmented Generation) - Using simpler alternatives
-langchain==0.1.0
-langchain-community==0.0.10
-# langchain-openai==0.0.2  # Commented out - causes tiktoken compilation issues
-
-# Vector store for RAG - Using ChromaDB instead of FAISS (no Rust compilation)
-numpy>=1.24,<2.0
-chromadb==0.4.15
-
-# Document processing for KP rules
-python-docx==0.8.11
-docx2txt==0.8
+# RAG dependencies removed - using OpenAI Assistant API exclusively
+# langchain, chromadb, numpy, python-docx, docx2txt no longer needed
+# Security: Pin langchain-community to patched version if installed as transitive dependency
+langchain-community>=0.2.4
 
 # Google Sheets integration
 google-auth==2.33.0
