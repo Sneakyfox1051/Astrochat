@@ -3,7 +3,7 @@ Flask==2.3.3
 Flask-CORS>=6.0.0
 
 # HTTP requests and API calls
-requests==2.31.0
+requests==2.32.4
 
 # Environment configuration
 python-dotenv==1.0.0
