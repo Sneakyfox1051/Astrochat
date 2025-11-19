@@ -52,8 +52,8 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
 
   // ===== CHAT TIMER STATE =====
   // Timer for 3-minute chat session limit
-  // 180 seconds = 3 minutes
-  const [timeRemaining, setTimeRemaining] = useState(180);
+  // 180 seconds = 5 minutes
+  const [timeRemaining, setTimeRemaining] = useState(300);
   const timerIntervalRef = useRef(null); // Reference to the countdown interval
 
   // ===== FEEDBACK MODAL STATE =====
@@ -324,8 +324,8 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
       // Listen for refresh events
       const handleRefresh = () => {
         resetMessages();
-        // Reset timer to 3 minutes when chat is refreshed
-        setTimeRemaining(180);
+        // Reset timer to 5 minutes when chat is refreshed
+        setTimeRemaining(300);
         // Clear any existing timer interval
         if (timerIntervalRef.current) {
           clearInterval(timerIntervalRef.current);
