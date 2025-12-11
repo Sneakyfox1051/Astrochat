@@ -5,8 +5,18 @@ This file allows AWS Elastic Beanstalk to find the Flask application
 import sys
 import os
 
-# Get the absolute path to the project root (where wsgi.py is located)
-project_root = os.path.dirname(os.path.abspath(__file__))
+# Elastic Beanstalk deployment directory
+EB_DEPLOY_DIR = '/var/app/current'
+
+# Get the directory where this file is located
+current_file_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Determine project root - prefer EB deployment dir if we're running there
+# This handles both local development and AWS deployment
+if os.path.exists(EB_DEPLOY_DIR) and os.path.exists(os.path.join(EB_DEPLOY_DIR, 'wsgi.py')):
+    project_root = EB_DEPLOY_DIR
+else:
+    project_root = current_file_dir
 
 # Add project root to Python path (so we can import wsgi module itself)
 if project_root not in sys.path:
