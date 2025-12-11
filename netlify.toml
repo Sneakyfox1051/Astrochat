@@ -1,0 +1,65 @@
+# Netlify Configuration for AstroRemedis Frontend
+
+[build]
+  # Build command
+  command = "cd frontend && npm install && npm run build"
+  # Directory to deploy (Netlify will serve files from here)
+  publish = "frontend/build"
+  # Base directory for build
+  base = "."
+
+[build.environment]
+  # Node version
+  NODE_VERSION = "18"
+  # Build settings
+  NPM_FLAGS = "--legacy-peer-deps"
+
+# Proxy API requests to AWS backend (optional; your backend is now HTTPS at api.astroremedis.com)
+#
+# If your frontend code uses relative URLs like `/api/...`, Netlify will forward them
+# to your AWS backend via this rule. If your frontend uses the full
+# https://api.astroremedis.com URL directly, this proxy won't be used.
+[[redirects]]
+  from = "/api/*"
+  to = "https://api.astroremedis.com/api/:splat"
+  status = 200
+  force = true
+
+# Redirect rules for Single Page Application (SPA)
+# All other routes should serve index.html for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers for security and CORS
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Cache static assets
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache media files
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.jpg"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+

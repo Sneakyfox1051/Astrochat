@@ -1,3 +1,12 @@
+/**
+ * ChatBubble Component
+ * 
+ * Displays the initial greeting bubble on the landing page.
+ * This is a simple presentational component that shows a welcome message
+ * before the user opens the chat interface.
+ * 
+ * @component
+ */
 import React from 'react';
 import './ChatBubble.css';
 

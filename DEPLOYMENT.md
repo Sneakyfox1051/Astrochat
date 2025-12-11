@@ -1,272 +1,330 @@
-# Deployment Guide - AstroRemedis
+# AWS Deployment Guide for AstroRemedis
 
-This guide provides instructions for deploying the AstroRemedis application to GitHub and production platforms.
+This guide covers deploying the AstroRemedis backend to AWS using various services.
 
-## 🌐 Deployment URLs
+## Prerequisites
 
-### Production URLs
-- **Backend API**: `https://astroremedis.onrender.com`
-- **Frontend**: (Add your frontend deployment URL here - e.g., Vercel, Netlify, GitHub Pages)
+1. AWS Account with appropriate permissions
+2. AWS CLI installed and configured
+3. Docker installed (for containerized deployments)
+4. Environment variables configured (see `.env.example`)
 
-### Local Development URLs (Commented Out)
-- **Backend API**: `http://127.0.0.1:5000` (commented in `frontend/src/services/api.js`)
-- **Frontend**: `http://localhost:3000`
+## Deployment Options
 
-## 📋 Pre-Deployment Checklist
+### Option 1: AWS Elastic Beanstalk (Recommended for Simplicity)
 
-- [x] Backend API URL updated to production URL
-- [x] Local development URLs commented out
-- [x] Environment variables configured on deployment platform
-- [x] `.gitignore` properly configured to exclude sensitive files
-- [ ] Frontend deployed and URL added to documentation
-- [ ] CORS configured to allow frontend domain
+Elastic Beanstalk automatically handles capacity provisioning, load balancing, auto-scaling, and application health monitoring.
 
-## 🚀 GitHub Deployment
+#### Steps:
 
-### Step 1: Initialize Git Repository (if not already done)
-
-```bash
-# Navigate to project root
-cd astro-main
-
-# Initialize git repository
-git init
-
-# Add all files
-git add .
-
-# Create initial commit
-git commit -m "Initial commit: AstroRemedis deployment ready"
-```
-
-### Step 2: Create GitHub Repository
-
-1. Go to [GitHub](https://github.com) and create a new repository
-2. Name it `astroremedis` (or your preferred name)
-3. **DO NOT** initialize with README, .gitignore, or license (we already have these)
-
-### Step 3: Push to GitHub
-
-```bash
-# Add remote repository (replace YOUR_USERNAME with your GitHub username)
-git remote add origin https://github.com/YOUR_USERNAME/astroremedis.git
-
-# Rename branch to main (if needed)
-git branch -M main
-
-# Push to GitHub
-git push -u origin main
-```
-
-## 🔧 Backend Deployment (Render.com)
-
-### Prerequisites
-- Render.com account
-- GitHub repository connected
-
-### Deployment Steps
-
-1. **Create New Web Service on Render**
-   - Go to [Render Dashboard](https://dashboard.render.com)
-   - Click "New +" → "Web Service"
-   - Connect your GitHub repository
-   - Select the repository and branch
-
-2. **Configure Build Settings**
-   - **Name**: `astroremedis-backend`
-   - **Environment**: `Python 3`
-   - **Build Command**: `pip install -r backend/requirements.txt`
-   - **Start Command**: `cd backend && gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 2`
-   - **Root Directory**: Leave empty (or set to `backend` if deploying only backend)
-
-3. **Environment Variables**
-   Add the following environment variables in Render dashboard:
-   ```
-   PROKERALA_CLIENT_ID=your_client_id
-   PROKERALA_CLIENT_SECRET=your_client_secret
-   OPENAI_API_KEY=your_openai_key
-   OPENAI_ASSISTANT_ID=your_assistant_id
-   GOOGLE_CLIENT_ID=your_google_client_id (optional)
-   GOOGLE_CLIENT_SECRET=your_google_client_secret (optional)
-   GOOGLE_TOKEN_URI=https://oauth2.googleapis.com/token
-   GOOGLE_REFRESH_TOKEN=your_refresh_token (optional)
-   GOOGLE_SHEETS_SPREADSHEET_NAME=AstroRemedis Data
-   GOOGLE_SHEETS_WORKSHEET_NAME=Sheet1
-   ```
-
-4. **Deploy**
-   - Click "Create Web Service"
-   - Render will automatically build and deploy
-   - Your backend will be available at: `https://astroremedis.onrender.com`
-
-## 🎨 Frontend Deployment
-
-### Option 1: Vercel (Recommended)
-
-1. **Install Vercel CLI** (optional)
+1. **Install EB CLI** (if not already installed):
    ```bash
-   npm i -g vercel
+   pip install awsebcli
    ```
 
-2. **Deploy via Vercel Dashboard**
-   - Go to [Vercel](https://vercel.com)
-   - Import your GitHub repository
+2. **Initialize Elastic Beanstalk**:
+   ```bash
+   cd /path/to/astro-main
+   eb init -p python-3.11 astroremedis-backend --region us-east-1
+   ```
+
+3. **Create Environment**:
+   ```bash
+   eb create astroremedis-prod --instance-type t3.small --min-size 1 --max-size 3
+   ```
+
+4. **Set Environment Variables**:
+   ```bash
+   eb setenv OPENAI_API_KEY=your_key \
+            OPENAI_ASSISTANT_ID=your_id \
+            PROKERALA_CLIENT_ID=your_id \
+            PROKERALA_CLIENT_SECRET=your_secret \
+            ALLOWED_ORIGINS=https://yourdomain.com \
+            FLASK_ENV=production \
+            DEBUG=False
+   ```
+
+5. **Deploy**:
+   ```bash
+   eb deploy
+   ```
+
+6. **Check Status**:
+   ```bash
+   eb status
+   eb health
+   ```
+
+#### Configuration Files:
+- `.ebextensions/01_python.config` - Python/WSGI configuration
+- `.ebextensions/02_nginx.config` - Nginx proxy settings
+- `.ebextensions/03_security.config` - Security headers
+
+---
+
+### Option 2: AWS App Runner (Containerized)
+
+App Runner is ideal for containerized applications with automatic scaling.
+
+#### Steps:
+
+1. **Build and Push Docker Image to ECR**:
+   ```bash
+   # Create ECR repository
+   aws ecr create-repository --repository-name astroremedis-backend --region us-east-1
+   
+   # Get login token
+   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
+   
+   # Build image
+   docker build -t astroremedis-backend .
+   
+   # Tag and push
+   docker tag astroremedis-backend:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/astroremedis-backend:latest
+   docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/astroremedis-backend:latest
+   ```
+
+2. **Create App Runner Service**:
+   - Go to AWS Console → App Runner
+   - Create service from container image
+   - Select your ECR image
    - Configure:
-     - **Framework Preset**: Create React App
-     - **Root Directory**: `frontend`
-     - **Build Command**: `npm run build`
-     - **Output Directory**: `build`
-     - **Install Command**: `npm install`
+     - Port: 8000
+     - Health check: `/api/health`
+     - Environment variables (from `.env.example`)
 
-3. **Environment Variables**
-   - `REACT_APP_API_URL`: `https://astroremedis.onrender.com` (optional, already set in code)
-
-4. **Deploy**
-   - Click "Deploy"
-   - Your frontend will be available at: `https://your-app.vercel.app`
-
-### Option 2: Netlify
-
-1. **Deploy via Netlify Dashboard**
-   - Go to [Netlify](https://netlify.com)
-   - Click "Add new site" → "Import an existing project"
-   - Connect GitHub repository
-
-2. **Configure Build Settings**
-   - **Base directory**: `frontend`
-   - **Build command**: `npm run build`
-   - **Publish directory**: `frontend/build`
-
-3. **Environment Variables**
-   - Add `REACT_APP_API_URL` if needed
-
-4. **Deploy**
-   - Click "Deploy site"
-   - Your frontend will be available at: `https://your-app.netlify.app`
-
-### Option 3: GitHub Pages
-
-1. **Install gh-pages**
+3. **Deploy Updates**:
    ```bash
-   cd frontend
-   npm install --save-dev gh-pages
+   # Rebuild and push
+   docker build -t astroremedis-backend .
+   docker tag astroremedis-backend:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/astroremedis-backend:latest
+   docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/astroremedis-backend:latest
    ```
+   App Runner will automatically detect and deploy the new image.
 
-2. **Update package.json**
-   Add to `scripts`:
+---
+
+### Option 3: AWS ECS (Elastic Container Service)
+
+For more control over infrastructure and scaling.
+
+#### Steps:
+
+1. **Create ECR Repository** (same as App Runner)
+
+2. **Create Task Definition**:
    ```json
-   "predeploy": "npm run build",
-   "deploy": "gh-pages -d build"
+   {
+     "family": "astroremedis-backend",
+     "networkMode": "awsvpc",
+     "requiresCompatibilities": ["FARGATE"],
+     "cpu": "512",
+     "memory": "1024",
+     "containerDefinitions": [{
+       "name": "astroremedis-backend",
+       "image": "<account-id>.dkr.ecr.us-east-1.amazonaws.com/astroremedis-backend:latest",
+       "portMappings": [{
+         "containerPort": 8000,
+         "protocol": "tcp"
+       }],
+       "environment": [
+         {"name": "OPENAI_API_KEY", "value": "your_key"},
+         {"name": "FLASK_ENV", "value": "production"}
+       ],
+       "logConfiguration": {
+         "logDriver": "awslogs",
+         "options": {
+           "awslogs-group": "/ecs/astroremedis-backend",
+           "awslogs-region": "us-east-1",
+           "awslogs-stream-prefix": "ecs"
+         }
+       },
+       "healthCheck": {
+         "command": ["CMD-SHELL", "python -c \"import requests; requests.get('http://localhost:8000/api/health')\""],
+         "interval": 30,
+         "timeout": 5,
+         "retries": 3
+       }
+     }]
+   }
    ```
 
-3. **Add homepage**
-   Update `package.json`:
-   ```json
-   "homepage": "https://YOUR_USERNAME.github.io/astroremedis"
-   ```
+3. **Create ECS Service** with Application Load Balancer
 
-4. **Deploy**
-   ```bash
-   npm run deploy
-   ```
+4. **Configure Auto Scaling** based on CPU/Memory metrics
 
-## 🔐 Environment Variables
+---
 
-### Backend (.env file - DO NOT COMMIT)
-Create `backend/.env` with:
-```env
-PROKERALA_CLIENT_ID=your_client_id
-PROKERALA_CLIENT_SECRET=your_client_secret
-OPENAI_API_KEY=your_openai_key
-OPENAI_ASSISTANT_ID=your_assistant_id
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_TOKEN_URI=https://oauth2.googleapis.com/token
-GOOGLE_REFRESH_TOKEN=your_refresh_token
-GOOGLE_SHEETS_SPREADSHEET_NAME=AstroRemedis Data
-GOOGLE_SHEETS_WORKSHEET_NAME=Sheet1
+## Environment Variables
+
+Set these in your AWS environment (Elastic Beanstalk, App Runner, or ECS):
+
+### Required:
+- `OPENAI_API_KEY` - Your OpenAI API key
+- `OPENAI_ASSISTANT_ID` - Default Assistant ID
+- `OPENAI_ASSISTANT_ID_HORARY` - Horary Assistant ID
+- `PROKERALA_CLIENT_ID` - ProKerala API client ID
+- `PROKERALA_CLIENT_SECRET` - ProKerala API secret
+
+### Production (Required):
+- `ALLOWED_ORIGINS` - **Set to your Netlify frontend URL** (e.g., `https://astroremedis.netlify.app`)
+  - **Important**: Change from default `*` to restrict CORS to production frontend only
+- `FLASK_ENV` - Set to `production`
+- `DEBUG` - Set to `False`
+
+### Optional:
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, etc. - For Google Sheets integration
+
+**Production URLs:**
+- Backend: `https://api.astroremedis.com`
+- Frontend: `https://astroremedis.netlify.app` (or your custom domain)
+
+---
+
+## Health Checks
+
+The application provides a health check endpoint:
+
+```
+GET /api/health
 ```
 
-### Frontend (.env file - Optional)
-Create `frontend/.env` with:
-```env
-REACT_APP_API_URL=https://astroremedis.onrender.com
+Response:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-01T00:00:00",
+  "features": {
+    "assistant_api_enabled": true,
+    "openai_enabled": true,
+    "prokerala_enabled": true
+  }
+}
 ```
 
-## 🔄 Updating Deployment
+Configure your load balancer/health check to use this endpoint.
 
-### Backend Updates
-1. Make changes to code
-2. Commit and push to GitHub
-3. Render will automatically redeploy
+---
 
-### Frontend Updates
-1. Make changes to code
-2. Commit and push to GitHub
-3. Vercel/Netlify will automatically redeploy
+## Monitoring and Logging
 
-## 🧪 Testing Deployment
+### CloudWatch Logs
 
-### Backend Health Check
+Logs are automatically sent to CloudWatch. View them in:
+- Elastic Beanstalk: Environment → Logs
+- App Runner: Service → Logs
+- ECS: CloudWatch Logs → `/ecs/astroremedis-backend`
+
+### Application Logs
+
+The application uses Python's `logging` module. Log levels can be controlled via `LOG_LEVEL` environment variable.
+
+---
+
+## Security Best Practices
+
+1. **Never commit `.env` files** - Use AWS Systems Manager Parameter Store or Secrets Manager
+2. **Restrict CORS origins** - Set `ALLOWED_ORIGINS` to your frontend domain(s)
+3. **Use HTTPS** - Configure SSL/TLS certificates in your load balancer
+4. **Enable WAF** - Consider AWS WAF for additional protection
+5. **Rotate credentials** - Regularly rotate API keys and secrets
+6. **Monitor access** - Enable CloudTrail for API access logging
+
+---
+
+## Scaling Configuration
+
+### Elastic Beanstalk:
+- Configure auto-scaling in Environment → Configuration → Capacity
+- Recommended: Min 1, Max 3 instances for cost optimization
+
+### App Runner:
+- Auto-scales based on traffic (configure min/max concurrency)
+
+### ECS:
+- Configure auto-scaling policies based on CPU/Memory metrics
+- Recommended: Target 70% CPU utilization
+
+---
+
+## Troubleshooting
+
+### Application won't start:
+1. Check CloudWatch logs for errors
+2. Verify all environment variables are set
+3. Check health endpoint: `curl https://your-domain/api/health`
+
+### CORS errors:
+1. Verify `ALLOWED_ORIGINS` includes your frontend domain
+2. Check browser console for specific CORS error
+
+### API timeouts:
+1. Increase timeout in Gunicorn configuration (Procfile)
+2. Check ProKerala/OpenAI API status
+3. Review CloudWatch metrics for bottlenecks
+
+---
+
+## Frontend Deployment (Netlify)
+
+The frontend is deployed on Netlify and automatically uses the production AWS backend.
+
+### Production URLs:
+- **Frontend**: `https://astroremedis.netlify.app` (or your custom domain)
+- **Backend**: `https://api.astroremedis.com` (AWS)
+
+### Netlify Configuration:
+
+1. **Automatic Deployment** (via `netlify.toml`):
+   - Build command: `cd frontend && npm install && npm run build`
+   - Publish directory: `frontend/build`
+   - Node version: 18
+
+2. **Environment Variables** (Set in Netlify Dashboard):
+   ```bash
+   REACT_APP_API_URL=https://api.astroremedis.com
+   NODE_ENV=production
+   GENERATE_SOURCEMAP=false
+   ```
+
+3. **API Configuration**:
+   - Frontend is already configured to use `https://api.astroremedis.com` in production
+   - No code changes needed - the API URL is set in `frontend/src/services/api.js`
+
+### Manual Build (if needed):
 ```bash
-curl https://astroremedis.onrender.com/api/health
+cd frontend
+npm install
+npm run build
+# Deploy frontend/build/ to Netlify
 ```
 
-### Frontend Connection Test
-1. Open browser console
-2. Check for API connection logs
-3. Verify API calls are going to production URL
+### CORS Configuration:
+Make sure your backend `ALLOWED_ORIGINS` includes your Netlify URL:
+```bash
+ALLOWED_ORIGINS=https://astroremedis.netlify.app
+```
 
-## 📝 Code Changes for Deployment
+---
 
-### Frontend (`frontend/src/services/api.js`)
-- ✅ Deployed URL: `https://astroremedis.onrender.com` (active)
-- ✅ Local URL: `http://127.0.0.1:5000` (commented out)
+## Cost Optimization
 
-### Backend (`backend/app.py`)
-- ✅ Local development server: Commented out
-- ✅ Production: Uses Gunicorn via Procfile
+- Use t3.small or t3.medium instances (sufficient for most workloads)
+- Enable auto-scaling to scale down during low traffic
+- Use CloudFront for static assets
+- Consider Reserved Instances for predictable workloads
 
-## 🐛 Troubleshooting
+---
 
-### CORS Issues
-- Ensure backend CORS allows frontend domain
-- Check `CORS(app)` in `backend/app.py`
+## Support
 
-### Environment Variables
-- Verify all variables are set in deployment platform
-- Check variable names match exactly (case-sensitive)
-
-### Build Failures
-- Check build logs in deployment platform
-- Verify all dependencies are in `requirements.txt` and `package.json`
-- Ensure Node.js and Python versions are compatible
-
-### API Connection Issues
-- Verify backend URL is correct in frontend
-- Check backend is running and accessible
-- Test backend health endpoint
-
-## 📚 Additional Resources
-
-- [Render Documentation](https://render.com/docs)
-- [Vercel Documentation](https://vercel.com/docs)
-- [Netlify Documentation](https://docs.netlify.com)
-- [GitHub Pages Documentation](https://pages.github.com)
-
-## ✅ Post-Deployment Checklist
-
-- [ ] Backend health endpoint responding
-- [ ] Frontend loads correctly
-- [ ] API calls working from frontend
-- [ ] CORS configured properly
-- [ ] Environment variables set correctly
-- [ ] SSL certificates active (HTTPS)
-- [ ] Error logging configured
-- [ ] Monitoring set up (optional)
+For issues or questions:
+1. Check CloudWatch logs
+2. Review application logs
+3. Test health endpoint
+4. Verify environment variables
 
 ---
 
 **Last Updated**: 2024
-**Maintained by**: AstroRemedis Development Team
 

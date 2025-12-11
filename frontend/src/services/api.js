@@ -3,19 +3,27 @@
  * Handles all communication with the backend API
  */
 
-// DEPLOYED BACKEND URL - Production (Active for deployment)
-const API_BASE_URL_DEPLOYED = 'https://astroremedis.onrender.com';
+import logger from '../utils/logger';
+import { sanitizeInput } from '../utils/sanitize';
 
-// LOCAL DEVELOPMENT URL - Commented out for deployment
-// const API_BASE_URL_LOCAL = 'http://127.0.0.1:5000';
+// ============================================================================
+// API Configuration - Production URLs
+// ============================================================================
+// AWS Backend URL - Production (HTTPS via api.astroremedis.com)
+const API_BASE_URL_DEPLOYED = 'https://api.astroremedis.com';
 
-// Use deployed URL by default, fallback to environment variable if set
-const API_BASE_URL = process.env.REACT_APP_API_URL || API_BASE_URL_DEPLOYED;
+// LOCAL DEVELOPMENT URL - For local backend testing only
+const API_BASE_URL_LOCAL = 'http://127.0.0.1:5000';
+
+// Priority: Environment variable > Production URL > Local fallback
+// In production builds, this will use API_BASE_URL_DEPLOYED unless
+// REACT_APP_API_URL is explicitly set
+const API_BASE_URL = process.env.REACT_APP_API_URL || API_BASE_URL_DEPLOYED || API_BASE_URL_LOCAL;
 
 class AstroBotAPI {
   constructor() {
     this.baseURL = API_BASE_URL;
-    console.log('AstroBotAPI initialized with baseURL:', this.baseURL);
+    logger.log('AstroBotAPI initialized with baseURL:', this.baseURL);
   }
 
   /**
@@ -32,8 +40,8 @@ class AstroBotAPI {
       });
       return response.ok;
     } catch (error) {
-      console.error('Backend connection verification failed:', error);
-      console.error('Backend URL:', this.baseURL);
+      logger.error('Backend connection verification failed:', error);
+      logger.error('Backend URL:', this.baseURL);
       return false;
     }
   }
@@ -42,22 +50,33 @@ class AstroBotAPI {
    * Send a chat message to the backend
    * @param {string} message - User message
    * @param {Object} chartData - Optional chart data (for context)
+   * @param {Object} clientProfile - Optional client profile data
+   * @param {string} threadId - Optional thread ID for conversation continuity
    * @returns {Promise<Object>} API response
    */
-  async sendChatMessage(message, chartData = null, clientProfile = null) {
+  async sendChatMessage(message, chartData = null, clientProfile = null, threadId = null) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 40000);
+      // Sanitize user message to prevent XSS
+      const sanitizedMessage = sanitizeInput(message);
+      const requestBody = {
+        message: sanitizedMessage,
+        chart_data: chartData,
+        client_profile: clientProfile
+      };
+      
+      // Include thread_id if provided for conversation continuity
+      if (threadId) {
+        requestBody.thread_id = threadId;
+      }
+      
       const response = await fetch(`${this.baseURL}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message: message,
-          chart_data: chartData,
-          client_profile: clientProfile
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal
       });
       clearTimeout(timeout);
@@ -68,17 +87,24 @@ class AstroBotAPI {
 
       return await response.json();
     } catch (error) {
-      console.error('Error sending chat message (attempt 1):', error);
+      logger.error('Error sending chat message (attempt 1):', error);
       // Retry once with minimal payload (no chart context) and fresh controller
       try {
         const controller2 = new AbortController();
         const timeout2 = setTimeout(() => controller2.abort(), 40000);
+        const requestBody2 = { message: sanitizeInput(message) };
+        
+        // Include thread_id in retry if available
+        if (threadId) {
+          requestBody2.thread_id = threadId;
+        }
+        
         const response2 = await fetch(`${this.baseURL}/api/chat`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ message }),
+          body: JSON.stringify(requestBody2),
           signal: controller2.signal
         });
         clearTimeout(timeout2);
@@ -87,7 +113,7 @@ class AstroBotAPI {
         }
         return await response2.json();
       } catch (fallbackError) {
-        console.error('Error sending chat message (fallback):', fallbackError);
+        logger.error('Error sending chat message (fallback):', fallbackError);
         throw fallbackError;
       }
     }
@@ -98,53 +124,94 @@ class AstroBotAPI {
    * @param {Object} birthDetails - Birth details
    * @returns {Promise<Object>} Kundli data
    */
-  async generateKundli(birthDetails) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 60000); // Increased timeout to 60s for Kundli generation
-      
-      const url = `${this.baseURL}/api/kundli`;
-      console.log('Generating Kundli - URL:', url);
-      console.log('Generating Kundli - Payload:', birthDetails);
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(birthDetails),
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        // Try to include server error details for better debugging
-        let serverMessage = '';
-        try {
-          const errJson = await response.json();
-          serverMessage = errJson?.error || errJson?.message || '';
-        } catch (_) {
-          try { serverMessage = await response.text(); } catch (_) {}
+  async generateKundli(birthDetails, retryCount = 3) {
+    const maxRetries = retryCount;
+    let lastError = null;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 60000); // Increased timeout to 60s for Kundli generation
+        
+        const url = `${this.baseURL}/api/kundli`;
+        if (attempt === 0) {
+          logger.api('POST', url, birthDetails);
+        } else {
+          logger.log(`Retrying Kundli generation (attempt ${attempt + 1}/${maxRetries})...`);
         }
-        const detail = serverMessage ? ` - ${serverMessage}` : '';
-        throw new Error(`HTTP error! status: ${response.status}${detail}`);
-      }
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(birthDetails),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
 
-      return await response.json();
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        console.error('Error generating Kundli: Request timeout after 60 seconds');
-        throw new Error('Request timeout. Kundli generation is taking longer than expected. Please try again.');
-      } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('ERR_CONNECTION_RESET')) {
-        console.error('Error generating Kundli: Network error - Backend connection was reset');
-        console.error('Backend URL:', this.baseURL);
-        console.error('This usually means the backend crashed or closed the connection during processing.');
-        throw new Error(`Connection reset by backend server. The server may have encountered an error while processing your request. Please check the backend logs and try again.`);
-      } else {
-        console.error('Error generating Kundli:', error);
-        throw error;
+        if (!response.ok) {
+          // Try to include server error details for better debugging
+          let serverMessage = '';
+          try {
+            const errJson = await response.json();
+            serverMessage = errJson?.error || errJson?.message || '';
+          } catch (_) {
+            try { serverMessage = await response.text(); } catch (_) {}
+          }
+          const detail = serverMessage ? ` - ${serverMessage}` : '';
+          throw new Error(`HTTP error! status: ${response.status}${detail}`);
+        }
+
+        // Success - return the response
+        const result = await response.json();
+        if (attempt > 0) {
+          logger.log(`Kundli generation succeeded on attempt ${attempt + 1}`);
+        }
+        return result;
+      } catch (error) {
+        lastError = error;
+        
+        // Check if this is a retryable error
+        const isRetryable = 
+          error.name === 'AbortError' ||
+          error.message.includes('Failed to fetch') ||
+          error.message.includes('NetworkError') ||
+          error.message.includes('ERR_CONNECTION_RESET') ||
+          error.message.includes('Connection reset') ||
+          (error.message.includes('HTTP error') && error.message.includes('500')) ||
+          (error.message.includes('HTTP error') && error.message.includes('502')) ||
+          (error.message.includes('HTTP error') && error.message.includes('503')) ||
+          (error.message.includes('HTTP error') && error.message.includes('504'));
+        
+        // If it's the last attempt or not retryable, throw the error
+        if (attempt === maxRetries - 1 || !isRetryable) {
+          if (error.name === 'AbortError') {
+            logger.error('Error generating Kundli: Request timeout after 60 seconds');
+            throw new Error('Request timeout. Kundli generation is taking longer than expected. Please try again.');
+          } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('ERR_CONNECTION_RESET') || error.message.includes('Connection reset')) {
+            logger.error('Error generating Kundli: Network error - Backend connection was reset');
+            logger.error('Backend URL:', this.baseURL);
+            if (attempt === maxRetries - 1) {
+              throw new Error(`Connection error after ${maxRetries} attempts. Please check your internet connection and try again.`);
+            }
+          } else {
+            logger.error('Error generating Kundli:', error);
+            throw error;
+          }
+        }
+        
+        // Wait before retrying (exponential backoff: 1s, 2s, 4s)
+        if (attempt < maxRetries - 1 && isRetryable) {
+          const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s in milliseconds
+          logger.log(`Retrying in ${waitTime / 1000} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
       }
     }
+    
+    // This should never be reached, but just in case
+    throw lastError || new Error('Failed to generate Kundli after multiple attempts');
   }
 
   /**
@@ -152,51 +219,93 @@ class AstroBotAPI {
    * @param {Object} birthDetails - Birth details
    * @returns {Promise<Object>} Chart data
    */
-  async generateChart(birthDetails) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
-      
-      const url = `${this.baseURL}/api/chart`;
-      console.log('Generating chart - URL:', url);
-      console.log('Generating chart - Payload:', birthDetails);
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(birthDetails),
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        let serverMessage = '';
-        try {
-          const errJson = await response.json();
-          serverMessage = errJson?.error || errJson?.message || '';
-        } catch (_) {
-          try { serverMessage = await response.text(); } catch (_) {}
+  async generateChart(birthDetails, retryCount = 3) {
+    const maxRetries = retryCount;
+    let lastError = null;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        
+        const url = `${this.baseURL}/api/chart`;
+        if (attempt === 0) {
+          logger.api('POST', url, birthDetails);
+        } else {
+          logger.log(`Retrying chart generation (attempt ${attempt + 1}/${maxRetries})...`);
         }
-        const detail = serverMessage ? ` - ${serverMessage}` : '';
-        throw new Error(`HTTP error! status: ${response.status}${detail}`);
-      }
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(birthDetails),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
 
-      return await response.json();
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        console.error('Error generating chart: Request timeout after 30 seconds');
-        throw new Error('Request timeout. Please check your connection and try again.');
-      } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-        console.error('Error generating chart: Network error - Backend may not be running or accessible');
-        console.error('Backend URL:', this.baseURL);
-        throw new Error(`Cannot connect to backend server at ${this.baseURL}. Please ensure the backend is running.`);
-      } else {
-        console.error('Error generating chart:', error);
-        throw error;
+        if (!response.ok) {
+          let serverMessage = '';
+          try {
+            const errJson = await response.json();
+            serverMessage = errJson?.error || errJson?.message || '';
+          } catch (_) {
+            try { serverMessage = await response.text(); } catch (_) {}
+          }
+          const detail = serverMessage ? ` - ${serverMessage}` : '';
+          throw new Error(`HTTP error! status: ${response.status}${detail}`);
+        }
+
+        // Success - return the response
+        const result = await response.json();
+        if (attempt > 0) {
+          logger.log(`Chart generation succeeded on attempt ${attempt + 1}`);
+        }
+        return result;
+      } catch (error) {
+        lastError = error;
+        
+        // Check if this is a retryable error
+        const isRetryable = 
+          error.name === 'AbortError' ||
+          error.message.includes('Failed to fetch') ||
+          error.message.includes('NetworkError') ||
+          error.message.includes('ERR_CONNECTION_RESET') ||
+          error.message.includes('Connection reset') ||
+          (error.message.includes('HTTP error') && error.message.includes('500')) ||
+          (error.message.includes('HTTP error') && error.message.includes('502')) ||
+          (error.message.includes('HTTP error') && error.message.includes('503')) ||
+          (error.message.includes('HTTP error') && error.message.includes('504'));
+        
+        // If it's the last attempt or not retryable, throw the error
+        if (attempt === maxRetries - 1 || !isRetryable) {
+          if (error.name === 'AbortError') {
+            logger.error('Error generating chart: Request timeout after 30 seconds');
+            throw new Error('Request timeout. Please check your connection and try again.');
+          } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('ERR_CONNECTION_RESET') || error.message.includes('Connection reset')) {
+            logger.error('Error generating chart: Network error - Backend may not be running or accessible');
+            logger.error('Backend URL:', this.baseURL);
+            if (attempt === maxRetries - 1) {
+              throw new Error(`Connection error after ${maxRetries} attempts. Please check your internet connection and try again.`);
+            }
+          } else {
+            logger.error('Error generating chart:', error);
+            throw error;
+          }
+        }
+        
+        // Wait before retrying (exponential backoff: 1s, 2s, 4s)
+        if (attempt < maxRetries - 1 && isRetryable) {
+          const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s in milliseconds
+          logger.log(`Retrying in ${waitTime / 1000} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
       }
     }
+    
+    // This should never be reached, but just in case
+    throw lastError || new Error('Failed to generate chart after multiple attempts');
   }
 
   /**
@@ -226,7 +335,7 @@ class AstroBotAPI {
 
       return await response.json();
     } catch (error) {
-      console.error('Error analyzing Kundli:', error);
+      logger.error('Error analyzing Kundli:', error);
       throw error;
     }
   }
@@ -241,7 +350,7 @@ class AstroBotAPI {
       const timeout = setTimeout(() => controller.abort(), 15000);
       
       const url = `${this.baseURL}/api/form-submit`;
-      console.log('Submitting form data - URL:', url);
+      logger.api('POST', url);
       
       const response = await fetch(url, {
         method: 'POST',
@@ -261,15 +370,15 @@ class AstroBotAPI {
       return await response.json();
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.error('Error submitting form data: Request timeout');
+        logger.error('Error submitting form data: Request timeout');
         return { success: false, error: 'Request timeout. Please check your connection.' };
       } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-        console.error('Error submitting form data: Network error - Backend may not be running or accessible');
-        console.error('Backend URL:', this.baseURL);
+        logger.error('Error submitting form data: Network error - Backend may not be running or accessible');
+        logger.error('Backend URL:', this.baseURL);
         // Don't throw hard error to avoid blocking UX; return {success:false}
         return { success: false, error: `Cannot connect to backend at ${this.baseURL}. Please ensure the backend is running.` };
       } else {
-        console.error('Error submitting form data:', error);
+        logger.error('Error submitting form data:', error);
         // Don't throw hard error to avoid blocking UX; return {success:false}
         return { success: false, error: error.message };
       }
@@ -291,7 +400,7 @@ class AstroBotAPI {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting coordinates:', error);
+      logger.error('Error getting coordinates:', error);
       throw error;
     }
   }
@@ -310,7 +419,7 @@ class AstroBotAPI {
 
       return await response.json();
     } catch (error) {
-      console.error('Error checking health:', error);
+      logger.error('Error checking health:', error);
       throw error;
     }
   }
@@ -350,7 +459,7 @@ class AstroBotAPI {
 
       return await response.json();
     } catch (error) {
-      console.error('Error generating KP Horary:', error);
+      logger.error('Error generating KP Horary:', error);
       throw error;
     }
   }
@@ -390,7 +499,7 @@ class AstroBotAPI {
 
       return await response.json();
     } catch (error) {
-      console.error('Error generating Lal Kitab observation:', error);
+      logger.error('Error generating Lal Kitab observation:', error);
       throw error;
     }
   }
@@ -415,6 +524,7 @@ class AstroBotAPI {
         },
         body: JSON.stringify({
           name: formData.name,
+          phone: formData.phone || '',
           dob: formData.dob,
           tob: formData.tob,
           place: formData.place,
@@ -430,7 +540,7 @@ class AstroBotAPI {
 
       return await response.json();
     } catch (error) {
-      console.error('Error submitting form data:', error);
+      logger.error('Error submitting form data:', error);
       throw error;
     }
   }
@@ -464,7 +574,41 @@ class AstroBotAPI {
 
       return await response.json();
     } catch (error) {
-      console.error('Error submitting feedback:', error);
+      logger.error('Error submitting feedback:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Restart the backend server
+   * @param {string} token - Optional restart token if RESTART_TOKEN is configured
+   * @returns {Promise<Object>} API response
+   */
+  async restartServer(token = null) {
+    try {
+      const requestBody = {};
+      if (token) {
+        requestBody.token = token;
+      }
+
+      const response = await fetch(`${this.baseURL}/api/restart`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      logger.log('Server restart initiated:', result);
+      return result;
+    } catch (error) {
+      logger.error('Error restarting server:', error);
       throw error;
     }
   }

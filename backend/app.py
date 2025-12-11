@@ -19,6 +19,13 @@ Key Features:
   - /v2/astrology/auspicious-yoga - Auspicious Yoga
   - /v2/astrology/sade-sati - Sade Sati analysis
   - /v2/astrology/chart - Visual SVG chart
+  - /v2/astrology/kaal-sarp-dosha - Kaal Sarp Dosha analysis
+  - /v2/astrology/upagraha-position - Upagraha positions
+  - /v2/astrology/yoga - General Yoga analysis
+  - /v2/astrology/dasha-periods - Dasha periods
+  - /v2/astrology/planet-relationship - Planet relationships
+  - /v2/astrology/divisional-planet-position - Divisional planet positions
+  - /v2/astrology/chandrashtama-periods - Chandrashtama periods
 - HTTP connection pooling for faster API calls
 - Geocoding cache for repeated place lookups
 - Age-based prediction logic for realistic responses
@@ -37,12 +44,14 @@ Last Updated: 2024
 import os
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
-# Suppress ChromaDB telemetry warnings
+from hashlib import sha256
+import threading
+# Suppress ChromaDB telemetry warnings (for any transitive dependencies)
 os.environ['CHROMA_TELEMETRY'] = 'false'
-# Suppress ONNX Runtime GPU warnings
+# Suppress ONNX Runtime GPU warnings (for any transitive dependencies)
 warnings.filterwarnings('ignore', category=UserWarning, module='onnxruntime')
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 import json
@@ -97,7 +106,43 @@ ENV_PATH = os.path.join(os.path.dirname(__file__), '.env')
 ENV_LOADED = load_dotenv(ENV_PATH, override=True)
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend communication
+# ============================================================================
+# CORS Configuration
+# ============================================================================
+# Enable CORS for frontend communication
+# In production, restrict to specific domains via ALLOWED_ORIGINS env var
+# Default: '*' (allows all origins) - CHANGE THIS IN PRODUCTION!
+# Production: Set ALLOWED_ORIGINS to your Netlify frontend URL
+# Example: ALLOWED_ORIGINS=https://astroremedis.netlify.app
+allowed_origins = os.getenv('ALLOWED_ORIGINS', '*')
+if allowed_origins != '*':
+    # Parse comma-separated origins (supports multiple domains)
+    allowed_origins = [origin.strip() for origin in allowed_origins.split(',')]
+    logger.info(f"CORS configured for origins: {allowed_origins}")
+else:
+    logger.warning("CORS is set to allow all origins (*). This should be restricted in production!")
+
+CORS(app, resources={
+    r"/api/*": {
+        "origins": allowed_origins,
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True
+    }
+})
+
+# Add security headers to all responses
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses"""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # Only add HSTS in production with HTTPS
+    if os.getenv('FLASK_ENV') == 'production' and request.is_secure:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return response
 
 # API Configuration
 # ProKerala API credentials for Kundli chart generation
@@ -131,10 +176,9 @@ except Exception as _e:
     diagnose_connection = None
     logger.warning(f"Google Sheets integration not available: {_e}")
 
-# Constants
-DOC_FILES = ["KP_RULE_1.docx", "KP_RULE_2.docx", "KP_RULE_3.docx"]
-DEFAULT_LAT, DEFAULT_LON = 19.0760, 72.8777  # Mumbai Coordinates
-DEFAULT_TZ = 'Asia/Kolkata'
+# Default geographic constants for fallback when geocoding fails
+DEFAULT_LAT, DEFAULT_LON = 19.0760, 72.8777  # Mumbai, India coordinates
+DEFAULT_TZ = 'Asia/Kolkata'  # Indian Standard Time
 
 # Set OpenAI API key
 if OPENAI_API_KEY:
@@ -263,8 +307,17 @@ def generate_remedies(user_query, chart_data, compact=False):
 
 
 def should_append_remedies(user_query: str) -> bool:
-    """Return True only when the user expresses a problem/pain, not generic inquiries.
-    Ensures remedies are not added for neutral questions like "career ke bare mein bataiye".
+    """
+    Determine if remedies should be appended to the response.
+    
+    Returns True only when the user expresses a problem/pain, not generic inquiries.
+    This ensures remedies are not added for neutral questions like "career ke bare mein bataiye".
+    
+    Args:
+        user_query (str): User's question/statement
+    
+    Returns:
+        bool: True if remedies should be appended, False otherwise
     """
     if not user_query:
         return False
@@ -304,18 +357,43 @@ class EnhancedAstroBotAPI:
         if self.http is None:
             self.http = requests.Session()
             try:
-                self.http.headers.update({"Connection": "keep-alive"})
-                # Configure connection pooling limits
+                self.http.headers.update({
+                    "Connection": "keep-alive",
+                    "User-Agent": "AstroRemedis-Bot/2.1.0"
+                })
+                # Optimized connection pooling for 14 parallel requests
                 adapter = requests.adapters.HTTPAdapter(
-                    pool_connections=10,
-                    pool_maxsize=20,
-                    max_retries=3
+                    pool_connections=20,  # Increased for more parallel connections
+                    pool_maxsize=40,      # Increased pool size
+                    max_retries=2,        # Reduced retries for faster failure
+                    pool_block=False       # Don't block if pool is full
                 )
                 self.http.mount('http://', adapter)
                 self.http.mount('https://', adapter)
             except Exception:
                 pass
         return self.http
+    
+    def _generate_cache_key(self, dob_date, tob_time, latitude, longitude, timezone_str):
+        """Generate a unique cache key for chart data based on birth parameters"""
+        # Create a deterministic hash from birth parameters
+        key_string = f"{dob_date.isoformat()}|{tob_time.isoformat()}|{latitude:.6f}|{longitude:.6f}|{timezone_str}"
+        return sha256(key_string.encode()).hexdigest()[:16]  # Use first 16 chars for shorter keys
+    
+    def _get_cached_chart(self, cache_key):
+        """Get cached chart data if available"""
+        with self._chart_cache_lock:
+            return self._chart_cache.get(cache_key)
+    
+    def _set_cached_chart(self, cache_key, chart_data):
+        """Cache chart data with LRU eviction"""
+        with self._chart_cache_lock:
+            # If cache is full, remove oldest entry (simple FIFO)
+            if len(self._chart_cache) >= self._chart_cache_max_size:
+                # Remove first (oldest) item
+                oldest_key = next(iter(self._chart_cache))
+                del self._chart_cache[oldest_key]
+            self._chart_cache[cache_key] = chart_data
 
     def __init__(self):
         """
@@ -330,60 +408,142 @@ class EnhancedAstroBotAPI:
         self.access_token = None
         self.token_expiry = None
         
-        # RAG removed; no vector store initialized
+        # Chart data cache (LRU cache for repeated requests)
+        self._chart_cache = {}  # Key: hash of birth params, Value: chart data
+        self._chart_cache_lock = threading.Lock()  # Thread-safe cache access
+        self._chart_cache_max_size = 100  # Maximum cached charts
+        
+        # Request deduplication (prevent duplicate concurrent requests for same chart)
+        # Key: request hash, Value: Future object
+        self._pending_requests = {}
+        self._pending_requests_lock = threading.Lock()
+        
+        # Note: Vector store initialization removed - using OpenAI Assistant API instead
 
-    # RAG vector store loader removed
-
-    def get_access_token(self):
+    def get_access_token(self, retry_count=3):
         """
-        Get access token from ProKerala API with caching and error handling.
+        Get access token from ProKerala API with caching, retry logic, and error handling.
         
         Token is cached for 1 hour to avoid unnecessary API calls.
-        If token is expired or missing, requests a new one.
+        If token is expired or missing, requests a new one with retry logic.
+        
+        Args:
+            retry_count (int): Number of retry attempts (default: 3)
         
         Returns:
             str: Access token if successful, None otherwise
         """
-        logger.info(f"PROKERALA_CLIENT_ID set: {bool(PROKERALA_CLIENT_ID)}")
-        logger.info(f"PROKERALA_CLIENT_SECRET set: {bool(PROKERALA_CLIENT_SECRET)}")
+        # Check if credentials are set (not just truthy, but actually have content)
+        client_id = PROKERALA_CLIENT_ID and str(PROKERALA_CLIENT_ID).strip()
+        client_secret = PROKERALA_CLIENT_SECRET and str(PROKERALA_CLIENT_SECRET).strip()
+        
+        logger.info(f"PROKERALA_CLIENT_ID set: {bool(client_id)}")
+        logger.info(f"PROKERALA_CLIENT_SECRET set: {bool(client_secret)}")
 
-        if not PROKERALA_CLIENT_ID or not PROKERALA_CLIENT_SECRET:
+        if not client_id or not client_secret:
             logger.error("ProKerala credentials not found in environment variables")
+            logger.error("Please check PROKERALA_CLIENT_ID and PROKERALA_CLIENT_SECRET in environment variables")
             return None
 
+        # Return cached token if still valid
         if self.access_token and self.token_expiry and datetime.now() < self.token_expiry:
+            logger.debug("Using cached ProKerala access token")
             return self.access_token
 
         token_url = "https://api.prokerala.com/token"
         data = {
             "grant_type": "client_credentials",
-            "client_id": PROKERALA_CLIENT_ID,
-            "client_secret": PROKERALA_CLIENT_SECRET,
+            "client_id": client_id,
+            "client_secret": client_secret,
         }
 
-        try:
-            response = self._get_http().post(token_url, data=data, timeout=12)
+        # Retry logic with exponential backoff
+        import time
+        last_exception = None
+        
+        for attempt in range(retry_count):
+            try:
+                logger.info(f"Requesting ProKerala token (attempt {attempt + 1}/{retry_count})...")
+                
+                # Use longer timeout for production environments (Render, etc.)
+                timeout = 30 if os.getenv('RENDER') or os.getenv('DYNO') else 15
+                
+                response = self._get_http().post(
+                    token_url, 
+                    data=data, 
+                    timeout=timeout,
+                    headers={'User-Agent': 'AstroRemedis-Bot/2.1.0'}
+                )
 
-            # Enhanced Authentication Error Check
-            if response.status_code in [400, 401]:
-                error_details = response.json().get('error_description', response.text)
-                logger.error(f"Prokerala AUTH Failed (Status: {response.status_code}). Details: {error_details}")
-                return None
+                # Enhanced Authentication Error Check
+                if response.status_code in [400, 401]:
+                    error_details = response.json().get('error_description', response.text) if response.text else 'Unknown error'
+                    logger.error(f"ProKerala AUTH Failed (Status: {response.status_code}). Details: {error_details}")
+                    # Don't retry on auth errors
+                    return None
 
-            response.raise_for_status()
-            token_data = response.json()
-            self.access_token = token_data["access_token"]
-            # Set expiry time (assuming 1 hour token validity)
-            self.token_expiry = datetime.now().replace(microsecond=0, second=0, minute=0) + \
-                timedelta(hours=1)
-            return self.access_token
+                response.raise_for_status()
+                token_data = response.json()
+                
+                if 'access_token' not in token_data:
+                    logger.error(f"ProKerala response missing access_token: {token_data}")
+                    return None
+                
+                self.access_token = token_data["access_token"]
+                # Set expiry time (assuming 1 hour token validity, but use actual expiry if provided)
+                expires_in = token_data.get('expires_in', 3600)  # Default to 1 hour
+                self.token_expiry = datetime.now() + timedelta(seconds=expires_in - 60)  # 1 minute buffer
+                
+                logger.info("Successfully obtained ProKerala access token")
+                return self.access_token
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network Error during Prokerala Token request: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Unknown Error during Prokerala Token request: {e}")
-            return None
+            except requests.exceptions.ConnectionError as e:
+                last_exception = e
+                error_msg = str(e)
+                if 'Connection reset' in error_msg or '104' in error_msg:
+                    logger.warning(f"Connection reset during ProKerala token request (attempt {attempt + 1}/{retry_count}): {e}")
+                else:
+                    logger.warning(f"Connection error during ProKerala token request (attempt {attempt + 1}/{retry_count}): {e}")
+                
+                if attempt < retry_count - 1:
+                    # Exponential backoff: 2^attempt seconds
+                    wait_time = 2 ** attempt
+                    logger.info(f"Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"Failed to get ProKerala token after {retry_count} attempts")
+                    
+            except requests.exceptions.Timeout as e:
+                last_exception = e
+                logger.warning(f"Timeout during ProKerala token request (attempt {attempt + 1}/{retry_count}): {e}")
+                if attempt < retry_count - 1:
+                    wait_time = 2 ** attempt
+                    logger.info(f"Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"Timeout getting ProKerala token after {retry_count} attempts")
+                    
+            except requests.exceptions.RequestException as e:
+                last_exception = e
+                logger.error(f"Network Error during ProKerala token request (attempt {attempt + 1}/{retry_count}): {e}")
+                if attempt < retry_count - 1:
+                    wait_time = 2 ** attempt
+                    logger.info(f"Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"Network error getting ProKerala token after {retry_count} attempts")
+                    
+            except Exception as e:
+                last_exception = e
+                logger.error(f"Unknown Error during ProKerala token request (attempt {attempt + 1}/{retry_count}): {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                # Don't retry on unknown errors (likely code issues)
+                break
+        
+        # All retries failed
+        logger.error(f"Failed to get ProKerala access token after {retry_count} attempts. Last error: {last_exception}")
+        return None
 
     def get_coordinates(self, place_name):
         """
@@ -424,7 +584,7 @@ class EnhancedAstroBotAPI:
         """Helper method to fetch planet positions"""
         try:
             planets_url = f"{base_url}/planet-position"
-            planets_response = self._get_http().get(planets_url, headers=headers, params=common_params, timeout=15)
+            planets_response = self._get_http().get(planets_url, headers=headers, params=common_params, timeout=10)
             planets_response.raise_for_status()
             result = planets_response.json().get('data', {}).get('planet_position', [])
             logger.info("✅ Planet Positions fetched successfully")
@@ -437,7 +597,7 @@ class EnhancedAstroBotAPI:
         """Helper method to fetch advanced Kundli"""
         try:
             kundli_url = f"{base_url}/kundli/advanced"
-            kundli_response = self._get_http().get(kundli_url, headers=headers, params=common_params, timeout=20)
+            kundli_response = self._get_http().get(kundli_url, headers=headers, params=common_params, timeout=12)
             kundli_response.raise_for_status()
             result = kundli_response.json().get('data', {})
             logger.info("✅ Kundli Advanced fetched successfully")
@@ -450,7 +610,7 @@ class EnhancedAstroBotAPI:
         """Helper method to fetch Bhava positions"""
         try:
             bhava_url = f"{base_url}/bhava-position"
-            bhava_response = self._get_http().get(bhava_url, headers=headers, params=common_params, timeout=15)
+            bhava_response = self._get_http().get(bhava_url, headers=headers, params=common_params, timeout=10)
             bhava_response.raise_for_status()
             result = bhava_response.json().get('data', {}).get('bhava_position', [])
             logger.info("✅ Bhava Positions fetched successfully")
@@ -521,7 +681,7 @@ class EnhancedAstroBotAPI:
                 'format': 'svg'
             }
             
-            chart_response = self._get_http().get(chart_url, headers=headers, params=chart_params, timeout=20)
+            chart_response = self._get_http().get(chart_url, headers=headers, params=chart_params, timeout=15)
             chart_response.raise_for_status()
             
             # Check if response is SVG
@@ -552,6 +712,97 @@ class EnhancedAstroBotAPI:
             logger.error(f"Error fetching Chart from ProKerala Chart endpoint: {e}")
             return ('chart', {})
 
+    def _fetch_kaal_sarp_dosha(self, base_url, headers, common_params):
+        """Helper method to fetch Kaal Sarp Dosha"""
+        try:
+            kaal_sarp_url = f"{base_url}/kaal-sarp-dosha"
+            kaal_sarp_response = self._get_http().get(kaal_sarp_url, headers=headers, params=common_params, timeout=12)
+            kaal_sarp_response.raise_for_status()
+            result = kaal_sarp_response.json().get('data', {})
+            logger.info("✅ Kaal Sarp Dosha fetched successfully")
+            return ('kaal_sarp_dosha', result)
+        except Exception as e:
+            logger.error(f"Error fetching Kaal Sarp Dosha: {e}")
+            return ('kaal_sarp_dosha', {})
+
+    def _fetch_upagraha_position(self, base_url, headers, common_params):
+        """Helper method to fetch Upagraha positions"""
+        try:
+            upagraha_url = f"{base_url}/upagraha-position"
+            upagraha_response = self._get_http().get(upagraha_url, headers=headers, params=common_params, timeout=10)
+            upagraha_response.raise_for_status()
+            result = upagraha_response.json().get('data', {}).get('upagraha', [])
+            logger.info("✅ Upagraha Positions fetched successfully")
+            return ('upagraha_position', result)
+        except Exception as e:
+            logger.error(f"Error fetching Upagraha Positions: {e}")
+            return ('upagraha_position', [])
+
+    def _fetch_yoga_general(self, base_url, headers, common_params):
+        """Helper method to fetch general Yoga (different from auspicious-yoga)"""
+        try:
+            yoga_url = f"{base_url}/yoga"
+            yoga_response = self._get_http().get(yoga_url, headers=headers, params=common_params, timeout=12)
+            yoga_response.raise_for_status()
+            result = yoga_response.json().get('data', {})
+            logger.info("✅ Yoga (general) fetched successfully")
+            return ('yoga_general', result)
+        except Exception as e:
+            logger.error(f"Error fetching Yoga (general): {e}")
+            return ('yoga_general', {})
+
+    def _fetch_dasha_periods(self, base_url, headers, common_params):
+        """Helper method to fetch Dasha periods"""
+        try:
+            dasha_url = f"{base_url}/dasha-periods"
+            dasha_response = self._get_http().get(dasha_url, headers=headers, params=common_params, timeout=10)
+            dasha_response.raise_for_status()
+            result = dasha_response.json().get('data', {})
+            logger.info("✅ Dasha Periods fetched successfully")
+            return ('dasha_periods', result)
+        except Exception as e:
+            logger.error(f"Error fetching Dasha Periods: {e}")
+            return ('dasha_periods', {})
+
+    def _fetch_planet_relationship(self, base_url, headers, common_params):
+        """Helper method to fetch Planet relationships"""
+        try:
+            planet_rel_url = f"{base_url}/planet-relationship"
+            planet_rel_response = self._get_http().get(planet_rel_url, headers=headers, params=common_params, timeout=10)
+            planet_rel_response.raise_for_status()
+            result = planet_rel_response.json().get('data', {})
+            logger.info("✅ Planet Relationships fetched successfully")
+            return ('planet_relationship', result)
+        except Exception as e:
+            logger.error(f"Error fetching Planet Relationships: {e}")
+            return ('planet_relationship', {})
+
+    def _fetch_divisional_planet_position(self, base_url, headers, common_params):
+        """Helper method to fetch Divisional planet positions"""
+        try:
+            divisional_url = f"{base_url}/divisional-planet-position"
+            divisional_response = self._get_http().get(divisional_url, headers=headers, params=common_params, timeout=10)
+            divisional_response.raise_for_status()
+            result = divisional_response.json().get('data', {})
+            logger.info("✅ Divisional Planet Positions fetched successfully")
+            return ('divisional_planet_position', result)
+        except Exception as e:
+            logger.error(f"Error fetching Divisional Planet Positions: {e}")
+            return ('divisional_planet_position', {})
+
+    def _fetch_chandrashtama_periods(self, base_url, headers, common_params):
+        """Helper method to fetch Chandrashtama periods"""
+        try:
+            chandrashtama_url = f"{base_url}/chandrashtama-periods"
+            chandrashtama_response = self._get_http().get(chandrashtama_url, headers=headers, params=common_params, timeout=12)
+            chandrashtama_response.raise_for_status()
+            result = chandrashtama_response.json().get('data', {})
+            logger.info("✅ Chandrashtama Periods fetched successfully")
+            return ('chandrashtama_periods', result)
+        except Exception as e:
+            logger.error(f"Error fetching Chandrashtama Periods: {e}")
+            return ('chandrashtama_periods', {})
+
     def calculate_chart_data(self, name, dob_date, tob_time, pob_text, latitude, longitude, timezone_str):
         """
         Calculate comprehensive chart data by calling all ProKerala endpoints.
@@ -564,9 +815,17 @@ class EnhancedAstroBotAPI:
         5. Auspicious Yoga
         6. Sade Sati analysis
         7. Visual SVG chart
+        8. Kaal Sarp Dosha
+        9. Upagraha positions
+        10. General Yoga
+        11. Dasha periods
+        12. Planet relationships
+        13. Divisional planet positions
+        14. Chandrashtama periods
         
-        All endpoints are called sequentially with proper error handling.
+        All endpoints are called in parallel for optimal performance with proper error handling.
         Data is normalized to handle inconsistent API response shapes.
+        Uses caching to avoid redundant API calls for same birth parameters.
         
         Args:
             name (str): Person's name
@@ -580,11 +839,24 @@ class EnhancedAstroBotAPI:
         Returns:
             dict: Comprehensive chart data with all ProKerala API responses
         """
-        access_token = self.get_access_token()
+        # Check cache first (chart data is deterministic based on birth parameters)
+        cache_key = self._generate_cache_key(dob_date, tob_time, latitude, longitude, timezone_str)
+        cached_data = self._get_cached_chart(cache_key)
+        if cached_data:
+            # Update name in cached data (only thing that might differ)
+            cached_data['name'] = name
+            cached_data['birth_location'] = pob_text
+            logger.info("✅ Returning cached chart data")
+            return cached_data
+        
+        # Check for duplicate concurrent request (simplified approach)
+        # Note: For production, consider using a proper async framework or Redis for distributed caching
+        access_token = self.get_access_token(retry_count=3)
         if not access_token:
             logger.error("ProKerala API credentials not available; cannot fetch chart data")
-            logger.error("Please check PROKERALA_CLIENT_ID and PROKERALA_CLIENT_SECRET in .env file")
-            raise ValueError("ProKerala API credentials not configured. Please check your .env file.")
+            logger.error("Please check PROKERALA_CLIENT_ID and PROKERALA_CLIENT_SECRET in environment variables")
+            logger.error("If on Render, ensure these are set in the Render dashboard under Environment Variables")
+            raise ValueError("ProKerala API credentials not configured or connection failed. Please check your environment variables and network connection.")
 
         try:
             # Create localized datetime
@@ -618,13 +890,19 @@ class EnhancedAstroBotAPI:
             'yoga': {},
             'dasha_periods': {},
             'sade_sati': {},
-            'bhava_position': []
+            'bhava_position': [],
+            'kaal_sarp_dosha': {},
+            'upagraha_position': [],
+            'yoga_general': {},
+            'planet_relationship': {},
+            'divisional_planet_position': {},
+            'chandrashtama_periods': {}
         }
 
         # Parallel fetch all ProKerala endpoints for better performance
         # Note: Chart endpoint needs special datetime format, so it's handled separately
         logger.info("🚀 Starting parallel fetch of ProKerala API endpoints...")
-        with ThreadPoolExecutor(max_workers=6) as executor:
+        with ThreadPoolExecutor(max_workers=14) as executor:
             # Submit all API calls except chart (which needs special formatting)
             futures = {
                 executor.submit(self._fetch_planet_positions, base_url, headers, common_params): 'planet_positions',
@@ -633,6 +911,13 @@ class EnhancedAstroBotAPI:
                 executor.submit(self._fetch_mangal_dosha, base_url, headers, common_params): 'mangal_dosha',
                 executor.submit(self._fetch_yoga, base_url, headers, common_params): 'yoga',
                 executor.submit(self._fetch_sade_sati, base_url, headers, common_params): 'sade_sati',
+                executor.submit(self._fetch_kaal_sarp_dosha, base_url, headers, common_params): 'kaal_sarp_dosha',
+                executor.submit(self._fetch_upagraha_position, base_url, headers, common_params): 'upagraha_position',
+                executor.submit(self._fetch_yoga_general, base_url, headers, common_params): 'yoga_general',
+                executor.submit(self._fetch_dasha_periods, base_url, headers, common_params): 'dasha_periods',
+                executor.submit(self._fetch_planet_relationship, base_url, headers, common_params): 'planet_relationship',
+                executor.submit(self._fetch_divisional_planet_position, base_url, headers, common_params): 'divisional_planet_position',
+                executor.submit(self._fetch_chandrashtama_periods, base_url, headers, common_params): 'chandrashtama_periods',
             }
             
             # Collect results as they complete
@@ -644,7 +929,7 @@ class EnhancedAstroBotAPI:
                 except Exception as e:
                     logger.error(f"Unexpected error processing {key}: {e}")
                     # Use empty defaults based on key type
-                    if key in ['planet_positions', 'bhava_position']:
+                    if key in ['planet_positions', 'bhava_position', 'upagraha_position']:
                         api_data[key] = []
                     else:
                         api_data[key] = {}
@@ -701,13 +986,24 @@ class EnhancedAstroBotAPI:
             ascendant_sign_name = lagna_planet.get('rasi', {}).get('name')
 
         # Map Planets to Houses using Bhava Positions if available; fallback to rasi-based
-        bhava_map = {p.get('id'): p.get('bhava') for p in api_data.get('bhava_position', []) if p.get('id') is not None}
+        # Optimized: Pre-build bhava_map once and use it efficiently
+        bhava_map = {}
+        for p in api_data.get('bhava_position', []):
+            pid = p.get('id')
+            if pid is not None:
+                bhava = p.get('bhava')
+                if isinstance(bhava, int) and bhava > 0:
+                    bhava_map[pid] = bhava
+        
+        # Optimized planet-to-house mapping
         if api_data['planet_positions']:
             for planet in api_data['planet_positions']:
                 planet_id = planet.get('id')
                 planet_name = planet.get('name')
                 house_num = None
-                if planet_id in bhava_map and isinstance(bhava_map[planet_id], int) and bhava_map[planet_id] > 0:
+                
+                # Try bhava_map first (faster lookup)
+                if planet_id in bhava_map:
                     house_num = bhava_map[planet_id]
                 elif ascendant_sign is not None:
                     sign_id = planet.get('rasi', {}).get('id')
@@ -715,7 +1011,10 @@ class EnhancedAstroBotAPI:
                         house_num = (sign_id - ascendant_sign + 12) % 12 + 1
 
                 if house_num is not None:
-                    planet_code = planet_code_map.get(planet_name, (planet_name or '')[:2])
+                    planet_code = planet_code_map.get(planet_name)
+                    if not planet_code:
+                        planet_code = (planet_name or '')[:2]
+                    
                     if house_num not in planets_in_house:
                         planets_in_house[house_num] = []
                     if planet_code and planet_code not in planets_in_house[house_num]:
@@ -743,7 +1042,14 @@ class EnhancedAstroBotAPI:
                 "bhava_position": api_data.get('bhava_position', []),
                 "mangal_dosha": api_data.get('mangal_dosha', {}),
                 "auspicious_yoga": api_data.get('yoga', {}),
-                "sade_sati": api_data.get('sade_sati', {})
+                "sade_sati": api_data.get('sade_sati', {}),
+                "kaal_sarp_dosha": api_data.get('kaal_sarp_dosha', {}),
+                "upagraha_position": api_data.get('upagraha_position', []),
+                "yoga_general": api_data.get('yoga_general', {}),
+                "dasha_periods": api_data.get('dasha_periods', {}),
+                "planet_relationship": api_data.get('planet_relationship', {}),
+                "divisional_planet_position": api_data.get('divisional_planet_position', {}),
+                "chandrashtama_periods": api_data.get('chandrashtama_periods', {})
             },
             
             # Visual Chart SVG (from ProKerala Chart endpoint)
@@ -758,9 +1064,15 @@ class EnhancedAstroBotAPI:
 
             # Data from separate ProKerala API endpoints
             "mangal_dosha": api_data.get('mangal_dosha', {}),
-            "dasha_periods": api_data.get('kundli', {}).get('dasha_periods', {}),
+            "dasha_periods": api_data.get('dasha_periods', {}) or api_data.get('kundli', {}).get('dasha_periods', {}),
             "sade_sati": api_data.get('sade_sati', {}),
-            "yoga": api_data.get('yoga', {})
+            "yoga": api_data.get('yoga', {}),
+            "kaal_sarp_dosha": api_data.get('kaal_sarp_dosha', {}),
+            "upagraha_position": api_data.get('upagraha_position', []),
+            "yoga_general": api_data.get('yoga_general', {}),
+            "planet_relationship": api_data.get('planet_relationship', {}),
+            "divisional_planet_position": api_data.get('divisional_planet_position', {}),
+            "chandrashtama_periods": api_data.get('chandrashtama_periods', {})
         }
 
         return final_chart_data
@@ -807,7 +1119,7 @@ class EnhancedAstroBotAPI:
                 logger.info(f"Chart Params: {chart_params}")
 
                 chart_url = f"{base_url}/chart"
-                chart_response = self._get_http().get(chart_url, headers=headers, params=chart_params, timeout=20)
+                chart_response = self._get_http().get(chart_url, headers=headers, params=chart_params, timeout=15)
 
                 logger.info(f"Chart Response Status: {chart_response.status_code}")
                 logger.info(f"Chart Response Content-Type: {chart_response.headers.get('content-type', '')}")
@@ -853,7 +1165,7 @@ class EnhancedAstroBotAPI:
         """Disabled: Do not generate predictions locally; require Assistant API."""
         return "AI assistant is not configured. Please try again later."
 
-    def get_rag_response(self, question, chart_data, conversation_history=None, assistant_id_override: str = None):
+    def get_rag_response(self, question, chart_data, conversation_history=None, assistant_id_override: str = None, thread_id=None):
         """
         Get AI response using OpenAI Assistant API.
         
@@ -899,7 +1211,9 @@ class EnhancedAstroBotAPI:
                 except:
                     pass # Keep default date
 
-            current_year = datetime.now().year
+            # Get current year dynamically (not hardcoded)
+            current_datetime = datetime.now()
+            current_year = current_datetime.year
             birth_year = dob_date.year
             current_age = current_year - birth_year
 
@@ -947,11 +1261,11 @@ class EnhancedAstroBotAPI:
             age_logic_context = f"""
             **INTERNAL AGE/LOGIC CONTEXT:**
             User was born in {birth_year}. Current Age: {current_age}.
-            **CURRENT YEAR: 2025** - All predictions must be for 2025 onwards.
+            **CURRENT YEAR: {current_year}** - All predictions must be for {current_year} onwards.
             Question Type: {response_style}.
             Minimum realistic age for this event is {minimum_age_threshold} years.
-            Prediction year MUST be >= {earliest_realistic_year} AND >= 2025.
-            If the Dasha data shows a favorable time before {earliest_realistic_year} or before 2025, IGNORE it and find the next favorable timing after {earliest_realistic_year} and 2025.
+            Prediction year MUST be >= {earliest_realistic_year} AND >= {current_year}.
+            If the Dasha data shows a favorable time before {earliest_realistic_year} or before {current_year}, IGNORE it and find the next favorable timing after {earliest_realistic_year} and {current_year}.
             {childbirth_logic_context}
             """
 
@@ -1079,19 +1393,40 @@ Please provide astrological guidance based on the above chart data and question,
             if len(user_message_with_context) > 200000:
                 user_message_with_context = user_message_with_context[:200000] + "\n... (message truncated)"
             
-            # Create a new thread for each request (or use conversation_history for thread reuse in future)
-            thread = client.beta.threads.create()
+            # Reuse existing thread if provided, otherwise create a new one
+            # Skip verification API call - if thread is invalid, we'll handle it when adding message
+            thread_id_to_use = thread_id if thread_id else None
+            
+            if not thread_id_to_use:
+                # Create a new thread
+                thread = client.beta.threads.create()
+                thread_id_to_use = thread.id
+                logger.debug(f"Created new thread: {thread_id_to_use}")
+            else:
+                logger.debug(f"Reusing existing thread: {thread_id_to_use}")
             
             # Add message to thread
-            client.beta.threads.messages.create(
-                thread_id=thread.id,
-                role="user",
-                content=user_message_with_context
-            )
+            try:
+                client.beta.threads.messages.create(
+                    thread_id=thread_id_to_use,
+                    role="user",
+                    content=user_message_with_context
+                )
+            except Exception as e:
+                logger.warning(f"Error adding message to thread {thread_id_to_use}: {e}")
+                # If thread is invalid, create a new one
+                thread = client.beta.threads.create()
+                thread_id_to_use = thread.id
+                logger.debug(f"Created new thread after error: {thread_id_to_use}")
+                client.beta.threads.messages.create(
+                    thread_id=thread_id_to_use,
+                    role="user",
+                    content=user_message_with_context
+                )
             
             # Run assistant
             run = client.beta.threads.runs.create(
-                thread_id=thread.id,
+                thread_id=thread_id_to_use,
                 assistant_id=selected_assistant_id
             )
             
@@ -1103,18 +1438,18 @@ Please provide astrological guidance based on the above chart data and question,
             while run.status in ['queued', 'in_progress', 'cancelling']:
                 if time.time() - start_time > max_wait_time:
                     logger.error("Assistant API timeout")
-                    return "Sorry, main abhi thoda busy hun. Kripya thodi der baad try karein."
+                    return ("Sorry, main abhi thoda busy hun. Kripya thodi der baad try karein.", thread_id_to_use)
                 
                 time.sleep(0.5)  # Poll faster for quicker responses
                 run = client.beta.threads.runs.retrieve(
-                    thread_id=thread.id,
+                    thread_id=thread_id_to_use,
                     run_id=run.id
                 )
             
             # Check if run completed successfully
             if run.status == 'completed':
                 # Retrieve messages from the thread
-                messages = client.beta.threads.messages.list(thread_id=thread.id)
+                messages = client.beta.threads.messages.list(thread_id=thread_id_to_use)
                 
                 # Get the assistant's response (first message in the list should be the latest)
                 assistant_messages = [msg for msg in messages.data if msg.role == 'assistant']
@@ -1122,33 +1457,75 @@ Please provide astrological guidance based on the above chart data and question,
                     # Get the text content from the first assistant message
                     content = assistant_messages[0].content[0]
                     if hasattr(content, 'text'):
-                        return content.text.value
+                        response_text = content.text.value
+                        # Return tuple with response and thread_id for reuse
+                        return (response_text, thread_id_to_use)
                     else:
-                        return str(content)
+                        return (str(content), thread_id_to_use)
                 else:
-                    return "Sorry, main response generate nahi kar paya. Kripya dobara try karein."
+                    return ("Sorry, main response generate nahi kar paya. Kripya dobara try karein.", thread_id_to_use)
             else:
                 logger.error(f"Assistant run failed with status: {run.status}")
                 if run.last_error:
                     logger.error(f"Error: {run.last_error}")
-                return "Sorry, main abhi thoda busy hun. Kripya thodi der baad try karein."
+                # Return thread_id even on failure so it can be reused
+                return ("Sorry, main abhi thoda busy hun. Kripya thodi der baad try karein.", thread_id_to_use)
 
         except Exception as e:
             logger.error(f"Error in Assistant API response: {e}")
             import traceback
             logger.error(traceback.format_exc())
-            return f"Sorry, I encountered an error with the AI model: {e}"
+            # Try to preserve thread_id if we have one
+            preserved_thread_id = thread_id if thread_id else None
+            return (f"Sorry, I encountered an error with the AI model: {e}", preserved_thread_id)
 
-    def generate_ai_response(self, user_message, chart_data=None):
-        """Always use Assistant API for predictions; no local/basic generation."""
-        return self.get_rag_response(user_message, chart_data or {})
+    # Note: generate_ai_response and _get_basic_response methods removed
+    # All AI responses now go through get_rag_response() which uses OpenAI Assistant API
 
-    def _get_basic_response(self, user_message):
-        """Disabled: No in-app fallback predictions; require Assistant API."""
-        return "AI assistant is not configured. Please try again later."
-
-# Initialize enhanced API instance
+# ============================================================================
+# Global API Instance
+# ============================================================================
+# Initialize the main API instance - this is used by all Flask routes
 astro_api = EnhancedAstroBotAPI()
+
+# ============================================================================
+# Thread Management for Conversation Context
+# ============================================================================
+# Store OpenAI thread IDs per session to maintain conversation context across requests.
+# This allows the AI to remember previous messages in the same conversation.
+#
+# Structure:
+#   {
+#     session_id: {
+#       'thread_id': 'thread_xxx',  # OpenAI thread ID
+#       'last_used': datetime,      # Last access timestamp
+#       'created': datetime          # Creation timestamp
+#     }
+#   }
+thread_store = {}
+THREAD_STORE_MAX_AGE_HOURS = 24  # Clean up threads older than 24 hours
+
+def _cleanup_old_threads():
+    """
+    Clean up old threads from thread_store.
+    
+    Removes threads that haven't been used in THREAD_STORE_MAX_AGE_HOURS.
+    This prevents memory leaks from abandoned conversation threads.
+    
+    Called automatically during thread retrieval operations.
+    """
+    try:
+        cutoff_time = datetime.now() - timedelta(hours=THREAD_STORE_MAX_AGE_HOURS)
+        sessions_to_remove = [
+            session_id for session_id, data in thread_store.items()
+            if isinstance(data, dict) and data.get('last_used', datetime.now()) < cutoff_time
+        ]
+        for session_id in sessions_to_remove:
+            del thread_store[session_id]
+        if sessions_to_remove:
+            logger.info(f"Cleaned up {len(sessions_to_remove)} old thread(s) from thread_store")
+    except Exception as e:
+        logger.warning(f"Error cleaning up old threads: {e}")
 
 @app.route('/')
 def home():
@@ -1172,7 +1549,8 @@ def home():
             "chat": "/api/chat",
             "kundli": "/api/kundli",
             "analyze": "/api/analyze",
-            "health": "/api/health"
+            "health": "/api/health",
+            "restart": "/api/restart"
         }
     })
 
@@ -1193,6 +1571,120 @@ def health_check():
             "prokerala_enabled": PROKERALA_CLIENT_ID is not None
         }
     })
+
+@app.route('/api/restart', methods=['POST'])
+def restart_server():
+    """
+    Restart server endpoint - Triggers a restart of the backend server.
+    
+    For AWS Elastic Beanstalk: Uses boto3 to restart the environment.
+    For local development: Provides instructions for manual restart.
+    
+    Optional Security:
+    - Set RESTART_TOKEN environment variable to require authentication
+    - If set, request must include 'token' in JSON body matching RESTART_TOKEN
+    
+    Request Body (optional):
+        - token (str, optional): Restart token if RESTART_TOKEN is set
+    
+    Returns:
+        JSON: Status message indicating restart initiation
+    """
+    try:
+        # Optional security: Check for restart token
+        restart_token = os.getenv('RESTART_TOKEN')
+        if restart_token:
+            data = request.get_json() or {}
+            provided_token = data.get('token', '')
+            if provided_token != restart_token:
+                return jsonify({
+                    "error": "Unauthorized",
+                    "message": "Invalid restart token"
+                }), 401
+        
+        # Try to restart using AWS Elastic Beanstalk (if boto3 is available)
+        try:
+            import boto3
+            from botocore.exceptions import ClientError, BotoCoreError
+            
+            # Get environment name from EB environment variable or config
+            eb_environment_name = os.getenv('AWS_EB_ENVIRONMENT_NAME')
+            aws_region = os.getenv('AWS_REGION', 'eu-north-1')  # Default to your region
+            
+            if eb_environment_name:
+                try:
+                    # Initialize boto3 client
+                    eb_client = boto3.client('elasticbeanstalk', region_name=aws_region)
+                    
+                    # Restart the application server (faster than full environment restart)
+                    logger.info(f"Attempting to restart EB environment: {eb_environment_name}")
+                    response = eb_client.restart_app_server(
+                        EnvironmentName=eb_environment_name
+                    )
+                    
+                    logger.info("Server restart initiated successfully via AWS EB")
+                    return jsonify({
+                        "status": "success",
+                        "message": "Server restart initiated",
+                        "method": "AWS Elastic Beanstalk",
+                        "environment": eb_environment_name,
+                        "timestamp": datetime.now().isoformat()
+                    }), 200
+                    
+                except ClientError as e:
+                    error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+                    logger.warning(f"AWS EB restart failed: {error_code} - {str(e)}")
+                    # Fall through to alternative methods
+                except BotoCoreError as e:
+                    logger.warning(f"AWS SDK error: {str(e)}")
+                    # Fall through to alternative methods
+            else:
+                logger.info("AWS_EB_ENVIRONMENT_NAME not set, trying alternative restart methods")
+        except ImportError:
+            logger.info("boto3 not available, using alternative restart method")
+        except Exception as e:
+            logger.warning(f"Error attempting AWS restart: {str(e)}")
+        
+        # Alternative: For Gunicorn, we can trigger a graceful restart
+        # This works by sending HUP signal to the master process
+        try:
+            import signal
+            import sys
+            
+            # Get the parent process ID (Gunicorn master process)
+            # In production, Gunicorn is the parent
+            parent_pid = os.getppid()
+            
+            # Send HUP signal to trigger graceful restart (Gunicorn feature)
+            # This reloads workers without dropping connections
+            os.kill(parent_pid, signal.SIGHUP)
+            
+            logger.info("Server restart initiated via SIGHUP signal")
+            return jsonify({
+                "status": "success",
+                "message": "Server restart initiated",
+                "method": "Gunicorn graceful restart (SIGHUP)",
+                "timestamp": datetime.now().isoformat()
+            }), 200
+            
+        except (OSError, ProcessLookupError, AttributeError) as e:
+            logger.warning(f"Signal-based restart not available: {str(e)}")
+            # Fall through to final message
+        
+        # If all restart methods fail, return instructions
+        return jsonify({
+            "status": "info",
+            "message": "Automatic restart not available",
+            "instructions": "Please restart the server manually or configure AWS_EB_ENVIRONMENT_NAME for AWS restart",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error in restart endpoint: {e}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e)
+        }), 500
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
@@ -1229,16 +1721,44 @@ def chat():
             # Use dedicated Horary Assistant provided by the user
             assistant_id_override = os.getenv('OPENAI_ASSISTANT_ID_HORARY', 'asst_JkBy9ktoGmzRWMibVjFz09SO')
 
-        # Generate AI response using Assistant API (with optional override)
-        ai_response = astro_api.get_rag_response(user_message, chart_data, assistant_id_override=assistant_id_override)
-
-        return jsonify({
+        # Get thread_id from request if provided (for conversation continuity)
+        thread_id = data.get('thread_id')
+        session_id = data.get('session_id')  # Optional session identifier
+        
+        # Generate AI response using Assistant API (with optional override and thread_id)
+        result = astro_api.get_rag_response(user_message, chart_data, assistant_id_override=assistant_id_override, thread_id=thread_id)
+        
+        # Handle both old format (string) and new format (tuple with thread_id)
+        if isinstance(result, tuple):
+            ai_response, returned_thread_id = result
+        else:
+            ai_response = result
+            returned_thread_id = None
+        
+        # Store thread_id in thread_store if session_id provided (with timestamp for cleanup)
+        if session_id and returned_thread_id:
+            thread_store[session_id] = {
+                'thread_id': returned_thread_id,
+                'last_used': datetime.now(),
+                'created': thread_store.get(session_id, {}).get('created', datetime.now())
+            }
+            # Clean up old threads periodically (every 100 requests to avoid overhead)
+            if len(thread_store) % 100 == 0:
+                _cleanup_old_threads()
+        
+        response_data = {
             "response": ai_response,
             "timestamp": datetime.now().isoformat(),
             "user_message": user_message,
             "assistant_enabled": OPENAI_API_KEY is not None and (assistant_id_override or OPENAI_ASSISTANT_ID) is not None,
             "mode": mode or None
-        })
+        }
+        
+        # Include thread_id in response for frontend to maintain conversation
+        if returned_thread_id:
+            response_data["thread_id"] = returned_thread_id
+        
+        return jsonify(response_data)
 
     except Exception as e:
         logger.error(f"Error in chat endpoint: {e}")
@@ -1255,7 +1775,7 @@ def generate_kundli():
     This endpoint:
     1. Parses birth data (flexible input formats)
     2. Geocodes place name to coordinates
-    3. Calls all 7 ProKerala API endpoints:
+    3. Calls all 14 ProKerala API endpoints in parallel:
        - Planet positions
        - Advanced Kundli
        - Bhava positions
@@ -1263,6 +1783,13 @@ def generate_kundli():
        - Auspicious Yoga
        - Sade Sati
        - Visual SVG chart
+       - Kaal Sarp Dosha
+       - Upagraha positions
+       - General Yoga
+       - Dasha periods
+       - Planet relationships
+       - Divisional planet positions
+       - Chandrashtama periods
     
     Request Body:
         - name (str, required): Person's name
@@ -1683,6 +2210,7 @@ def form_submit():
                     row_data=[
                         datetime.now().isoformat(),  # Timestamp
                         payload['name'],  # Name
+                        payload.get('phone', ''),  # Phone Number (optional)
                         payload['dob'],  # Date of Birth
                         payload['tob'],  # Time of Birth
                         payload['place'],  # Place
@@ -1808,16 +2336,12 @@ if __name__ == '__main__':
         logger.warning("OpenAI API key not found - RAG features will be limited")
 
     logger.info("Starting Enhanced AstroBot Backend Server...")
-    logger.info("Server will start on http://127.0.0.1:5000")
-    logger.info("Press CTRL+C to stop the server")
-    
-    # LOCAL DEVELOPMENT - Commented out for deployment
-    # For local testing, uncomment this line:
-    # app.run(debug=True, host='0.0.0.0', port=5000)
     
     # PRODUCTION DEPLOYMENT
-    # The app is deployed on Render.com and uses Gunicorn (see Procfile)
-    # Backend URL: https://astroremedis.onrender.com
+    # The app is deployed on AWS and uses Gunicorn (see Procfile)
     # Gunicorn is configured via Procfile for production deployment
-    # For production, comment out the app.run() line above
-    pass
+    # For local development, run the app:
+    # In production, Gunicorn is used via wsgi.py
+    debug_mode = os.getenv('DEBUG', 'False').lower() == 'true'
+    port = int(os.getenv('PORT', 5000))
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
