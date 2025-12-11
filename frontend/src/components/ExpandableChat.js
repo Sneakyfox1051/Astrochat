@@ -3,6 +3,9 @@ import './ExpandableChat.css';
 import astroBotAPI from '../services/api';
 import KundliChart from './KundliChart';
 import FeedbackModal from './FeedbackModal';
+import logger from '../utils/logger';
+import { sanitizeInput } from '../utils/sanitize';
+import storage from '../utils/storage';
 
 /**
  * ExpandableChat
@@ -14,20 +17,39 @@ import FeedbackModal from './FeedbackModal';
  */
 const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
   // Chat state and user profile data captured from form or stepwise prompts
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      text: "Jai Shri Ram 🙏 Swagat hai aapka AstroRemedis par. Main aapka AstroRemedis ka AI Astrologer hoon. Aap kaise hain?",
-      sender: 'pandit',
-      timestamp: new Date().toLocaleTimeString()
-    },
-    {
-      id: 2,
-      text: "Aapka naam kya hai aur kis vishay par margdarshan chahte hain? Pehle apna naam batayiye (e.g., Mera naam Rajesh hai).",
-      sender: 'pandit',
-      timestamp: new Date().toLocaleTimeString()
+  // Try to restore messages from localStorage, otherwise use default greeting
+  const getInitialMessages = () => {
+    try {
+      const savedMessages = storage.get('chat_messages', null);
+      if (savedMessages && Array.isArray(savedMessages) && savedMessages.length > 0) {
+        // Only restore if messages are recent (within last 24 hours)
+        const lastMessage = savedMessages[savedMessages.length - 1];
+        if (lastMessage && lastMessage.timestamp) {
+          // Restore messages
+          return savedMessages;
+        }
+      }
+    } catch (e) {
+      logger.warn('Failed to restore messages from localStorage:', e);
     }
-  ]);
+    // Default greeting messages
+    return [
+      {
+        id: 1,
+        text: "Jai Shri Ram 🙏 Swagat hai aapka AstroRemedis par. Main aapka AstroRemedis ka AI Astrologer hoon. Aap kaise hain?",
+        sender: 'pandit',
+        timestamp: new Date().toLocaleTimeString()
+      },
+      {
+        id: 2,
+        text: "Aapka naam kya hai aur kis vishay par margdarshan chahte hain? Pehle apna naam batayiye (e.g., Mera naam Rajesh hai).",
+        sender: 'pandit',
+        timestamp: new Date().toLocaleTimeString()
+      }
+    ];
+  };
+  
+  const [messages, setMessages] = useState(getInitialMessages);
   const [inputText, setInputText] = useState('');
   const [userProfile, setUserProfile] = useState({
     name: '',
@@ -40,6 +62,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
   const [chartData, setChartData] = useState(null);
   const [isGeneratingKundli, setIsGeneratingKundli] = useState(false);
   const [isGeneratingChart, setIsGeneratingChart] = useState(false);
+  const [isLoadingFadingOut, setIsLoadingFadingOut] = useState(false);
   // Steps: ask_name, ask_dob, ask_tob, ask_place, confirm_details, generating, chart_generated, chatting
   const [currentStep, setCurrentStep] = useState('ask_name');
   const messagesEndRef = useRef(null);
@@ -49,12 +72,18 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
   const [isBotTyping, setIsBotTyping] = useState(false);
   // Ensure chart is generated only once per chat session
   const timeoutRefs = useRef([]); // Track all timeouts for cleanup
+  
+  // ===== THREAD MANAGEMENT =====
+  // Store thread_id for conversation continuity (prevents backend resets)
+  const [threadId, setThreadId] = useState(null);
 
   // ===== CHAT TIMER STATE =====
-  // Timer for 3-minute chat session limit
-  // 180 seconds = 3 minutes
-  const [timeRemaining, setTimeRemaining] = useState(180);
+  // Timer for chat session limit
+  // 5 minutes (300 seconds) for chat session
+  const [timeRemaining, setTimeRemaining] = useState(300);
   const timerIntervalRef = useRef(null); // Reference to the countdown interval
+  const [timerExpired, setTimerExpired] = useState(false);
+  const [showPayButton, setShowPayButton] = useState(false);
 
   // ===== FEEDBACK MODAL STATE =====
   // Controls visibility of the feedback modal
@@ -145,7 +174,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
    * 
    * Behavior:
    * - Starts countdown when chat opens (isOpen = true)
-   * - Resets to 180 seconds (3 minutes) when chat opens
+   * - Resets to 30 seconds when chat opens (for testing - change to 180 for production)
    * - Decrements every second
    * - When timer reaches 0:
    *   1. Shows a farewell message to the user
@@ -154,8 +183,11 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
    */
   useEffect(() => {
     if (isOpen) {
-      // Reset timer to 3 minutes when chat opens
-      setTimeRemaining(180);
+      // Reset timer to 5 minutes (300 seconds) when chat opens
+      setTimeRemaining(300);
+      // Reset timer expired and pay button states
+      setTimerExpired(false);
+      setShowPayButton(false);
       
       // Start countdown timer - updates every second
       timerIntervalRef.current = setInterval(() => {
@@ -166,10 +198,14 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             clearInterval(timerIntervalRef.current);
             timerIntervalRef.current = null;
             
+            // Set timer expired state and show pay button
+            setTimerExpired(true);
+            setShowPayButton(true);
+            
             // Add a farewell message to inform the user
             setMessages(prev => [...prev, {
               id: nextMessageId(),
-              text: "⏰ Aapka 3 minute ka session khatam ho gaya hai. Dhanyawad! Aap dobara chat kar sakte hain.",
+              text: "⏰ Aapka session khatam ho gaya hai. Dhanyawad! Aap dobara chat kar sakte hain.",
               sender: 'pandit',
               timestamp: new Date().toLocaleTimeString()
             }]);
@@ -319,18 +355,23 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         hasGeneratedRef.current = false;
         setCurrentStep('ask_name');
         setEditMode(false);
+        // Reset thread_id on refresh to start new conversation
+        setThreadId(null);
       };
       
       // Listen for refresh events
       const handleRefresh = () => {
         resetMessages();
-        // Reset timer to 3 minutes when chat is refreshed
-        setTimeRemaining(180);
+        // Reset timer to 5 minutes (300 seconds)
+        setTimeRemaining(300);
         // Clear any existing timer interval
         if (timerIntervalRef.current) {
           clearInterval(timerIntervalRef.current);
           timerIntervalRef.current = null;
         }
+        // Reset timer expired and pay button states
+        setTimerExpired(false);
+        setShowPayButton(false);
         // Close feedback modal if open
         setShowFeedbackModal(false);
       };
@@ -362,6 +403,17 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
       }
     }
   }, [messages, isGeneratingKundli, isGeneratingChart, chartData]);
+
+  // Auto-save messages to localStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      try {
+        storage.set('chat_messages', messages);
+      } catch (e) {
+        logger.warn('Failed to auto-save messages:', e);
+      }
+    }
+  }, [messages]);
 
   // Auto-focus input when chat opens or bot finished typing
   useEffect(() => {
@@ -502,17 +554,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
       const chartResponse = await astroBotAPI.generateChart(birthDetails);
       const chartPayload = chartResponse && chartResponse.chart_data ? chartResponse.chart_data : null;
       if (chartResponse.success && chartPayload) {
-        // Wait for remaining time to meet minimum delay
-        const elapsed = Date.now() - genStartTs;
-        const remaining = Math.max(0, minDelayMs - elapsed);
-        if (remaining > 0) {
-          await new Promise(res => {
-            const id = setTimeout(res, remaining);
-            timeoutRefs.current.push(id);
-          });
-        }
         setChartData(chartPayload);
-        setIsGeneratingChart(false);
         setCurrentStep('chart_generated');
         hasGeneratedRef.current = true;
 
@@ -528,6 +570,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             timestamp: new Date().toLocaleTimeString()
           }];
         });
+        // Note: isGeneratingChart will be set to false when chart is actually rendered (via onChartReady callback)
       } else {
         throw new Error(chartResponse.error || 'Chart generation failed');
       }
@@ -539,17 +582,40 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
           setKundliData(kundliResponse.chart_data);
         }
       } catch (e) {
-        console.error('Background Kundli fetch failed:', e);
+        logger.error('Background Kundli fetch failed:', e);
       }
     } catch (error) {
-      console.error('Error generating Kundli:', error);
+      logger.error('Error generating Kundli:', error);
+      
+      // Preserve user profile data - don't clear it on error
+      // The userProfile state is already preserved, we just need to make sure it's not cleared
+      
+      // Create error message with retry option
       const errorMessage = {
         id: nextMessageId(),
-        text: "Sorry, Kundli generate karne mein koi problem aa rahi hai. Kripya dobara try karein ya contact karein.",
+        text: `Sorry, Kundli generate karne mein connection problem aa rahi hai. Aapka data save hai - kripya "Retry" button par click karein.`,
         sender: 'pandit',
-        timestamp: new Date().toLocaleTimeString()
+        timestamp: new Date().toLocaleTimeString(),
+        hasError: true,
+        errorType: 'kundli_generation',
+        // Store birth details for retry
+        retryData: detailsOverride || {
+          name: userProfile.name,
+          dob: userProfile.dob,
+          tob: userProfile.tob,
+          place: userProfile.place,
+          timezone: userProfile.timezone
+        }
       };
       setMessages(prev => [...prev, errorMessage]);
+      
+      // Reset generation flags so user can retry
+      // User profile data is preserved in userProfile state - no need to clear it
+      setIsGeneratingKundli(false);
+      setIsGeneratingChart(false);
+      hasGeneratedRef.current = false; // Allow retry
+      // Don't change currentStep - keep user at their current position
+      // They can retry using the retry button without losing their place
     } finally {
       setIsGeneratingKundli(false);
     }
@@ -566,11 +632,15 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         analysis_type: 'KP Horary Analysis'
       };
 
-      // Send to backend with horary context
-      const response = await astroBotAPI.sendChatMessage(question, horaryContext);
+      // Send to backend with horary context and thread_id for conversation continuity
+      const response = await astroBotAPI.sendChatMessage(question, horaryContext, null, threadId);
+      // Update thread_id from response if provided
+      if (response.thread_id) {
+        setThreadId(response.thread_id);
+      }
       return response.response;
     } catch (error) {
-      console.error('Error generating horary response:', error);
+      logger.error('Error generating horary response:', error);
       return "Horary analysis mein koi problem aayi hai. Kripya question dobara puchh sakte hain.";
     }
   };
@@ -590,16 +660,30 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
    */
   const handleSendMessage = async () => {
     if (inputText.trim()) {
+      // Sanitize user input before sending
+      const sanitizedText = sanitizeInput(inputText.trim());
+      if (!sanitizedText) {
+        // If sanitization removed everything, don't send
+        return;
+      }
+      
       const newMessage = {
         id: nextMessageId(),
-        text: inputText,
+        text: sanitizedText,
         sender: 'user',
         timestamp: new Date().toLocaleTimeString()
       };
       
       setMessages([...messages, newMessage]);
-      const currentInput = inputText;
+      const currentInput = sanitizedText;
       setInputText('');
+      
+      // Save messages to localStorage for persistence
+      try {
+        storage.set('chat_messages', [...messages, newMessage]);
+      } catch (e) {
+        logger.warn('Failed to save messages to localStorage:', e);
+      }
       
       try {
         // Show typing indicator
@@ -627,7 +711,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
               botText = reply;
               setCurrentStep('chatting');
             } catch (error) {
-              console.error('Horary analysis error:', error);
+              logger.error('Horary analysis error:', error);
               botText = "Horary analysis mein koi problem aayi hai. Kripya ek aur number try karein.";
             }
           }
@@ -748,9 +832,14 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
               chandra_rashi: sessionProfile.chandra_rashi,
               mahadasha: sessionProfile.mahadasha,
               introduced_core_facts: sessionProfile.introduced_core_facts
-            }
+            },
+            threadId // Pass thread_id for conversation continuity
           );
             botText = response.response;
+            // Update thread_id from response if provided
+            if (response.thread_id) {
+              setThreadId(response.thread_id);
+            }
           }
           setCurrentStep('chatting');
 
@@ -875,7 +964,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         setIsBotTyping(false);
         
       } catch (error) {
-        console.error('Error sending message:', error);
+        logger.error('Error sending message:', error);
         
         // Remove typing indicator and show error
         setMessages(prev => {
@@ -955,7 +1044,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
       // Send feedback to backend API (which saves to Google Sheets)
       await astroBotAPI.submitFeedback(feedbackWithUser);
       
-      console.log('Feedback submitted successfully to Google Sheets!');
+      logger.log('Feedback submitted successfully to Google Sheets!');
       
       // Close feedback modal and chat
       setShowFeedbackModal(false);
@@ -965,7 +1054,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         }, 300);
       }
     } catch (error) {
-      console.error('Error submitting feedback:', error);
+      logger.error('Error submitting feedback:', error);
       throw error; // Re-throw to let modal handle the error
     }
   };
@@ -1013,7 +1102,15 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
                   <KundliChart
                     chartData={message.chartData}
                     compact
-                    onChartReady={() => {}}
+                    onChartReady={() => {
+                      // Chart is now visible on screen - fade out loading then stop
+                      setIsLoadingFadingOut(true);
+                      setTimeout(() => {
+                        setIsGeneratingChart(false);
+                        setIsGeneratingKundli(false);
+                        setIsLoadingFadingOut(false);
+                      }, 500); // Match CSS transition duration
+                    }}
                   />
                   <span className="message-time">{message.timestamp}</span>
                 </div>
@@ -1027,13 +1124,29 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
                 </div>
               )}
               <div className="message-content">
-                <div className={`message-bubble ${message.isTyping ? 'typing' : ''}`}>
+                <div className={`message-bubble ${message.isTyping ? 'typing' : ''} ${message.hasError ? 'error-message' : ''}`}>
                   {message.isTyping ? (
                     <div className="typing-dots" aria-label="Pandit ji typing">
                       <span></span><span></span><span></span>
                     </div>
                   ) : (
-                    <p>{message.text}</p>
+                    <>
+                      <p>{message.text}</p>
+                      {message.hasError && message.retryData && (
+                        <button 
+                          className="retry-button"
+                          onClick={() => {
+                            // Retry Kundli generation with stored data
+                            generateKundli(message.retryData);
+                            // Remove the error message from the list
+                            setMessages(prev => prev.filter(m => m.id !== message.id));
+                          }}
+                          disabled={isGeneratingKundli}
+                        >
+                          {isGeneratingKundli ? '⏳ Retrying...' : '🔄 Retry'}
+                        </button>
+                      )}
+                    </>
                   )}
                   <span className="message-time">{message.timestamp}</span>
                 </div>
@@ -1047,9 +1160,23 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
         
         {/* Loading indicator for Kundli generation */}
         {(isGeneratingKundli || isGeneratingChart) && (
-          <div className="kundli-loading">
-            <div className="loading-spinner"></div>
-            <p>🔮 Aapka Kundli chart generate ho raha hai... Kripya wait karein</p>
+          <div className={`kundli-loading ${isLoadingFadingOut ? 'fade-out' : ''}`}>
+            <div className="loading-content">
+              <div className="loading-spinner-enhanced">
+                <div className="spinner-ring"></div>
+                <div className="spinner-ring"></div>
+                <div className="spinner-ring"></div>
+                <div className="spinner-center">🔮</div>
+              </div>
+              <div className="loading-text">
+                <p className="loading-title">Aapka Kundli chart generate ho raha hai...</p>
+                <div className="loading-steps">
+                  <span className="step active">📊 Planetary positions calculate kar rahe hain</span>
+                  <span className="step">🌟 Chart rendering...</span>
+                  <span className="step">✨ Almost ready!</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -1070,11 +1197,20 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
             }
             className="message-input"
             disabled={isGeneratingKundli || isBotTyping}
+            aria-label="Type your message"
+            aria-describedby="input-help-text"
+            maxLength={5000}
           />
+          <span id="input-help-text" className="sr-only">
+            Type your question and press Enter or click Send button
+          </span>
           <button 
             onClick={handleSendMessage} 
             className="send-button"
             disabled={isGeneratingKundli || isBotTyping}
+            aria-label="Send message"
+            aria-disabled={isGeneratingKundli || isBotTyping}
+            type="button"
           >
             <svg viewBox="0 0 24 24" className="send-icon">
               <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
