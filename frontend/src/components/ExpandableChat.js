@@ -362,7 +362,7 @@ const ExpandableChat = ({ isOpen, onClose, onRefresh, userData }) => {
       // Listen for refresh events
       const handleRefresh = () => {
         resetMessages();
-        // Reset timer to 5 minutes (300 seconds)
+        // Reset timer to 5 minutes (300 seconds) when chat is refreshed
         setTimeRemaining(300);
         // Clear any existing timer interval
         if (timerIntervalRef.current) {
