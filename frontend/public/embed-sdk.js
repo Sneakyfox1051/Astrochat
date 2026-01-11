@@ -79,7 +79,9 @@
     frame.className = 'ar-chat-frame';
     frame.title = 'AstroRemedis Chat';
     frame.allow = 'camera; microphone; clipboard-read; clipboard-write;';
-    frame.src = config.iframeUrl || 'https://gilded-baklava-db352f.netlify.app';
+    // For local testing, prefer local UI. Keep deployed URL commented for reference.
+    // const DEFAULT_IFRAME_URL_DEPLOYED = 'https://gilded-baklava-db352f.netlify.app';
+    frame.src = config.iframeUrl || 'http://localhost:3000';
     
     // Set fixed width and height directly from config
     frame.style.width = width + 'px';
@@ -87,6 +89,17 @@
     
     document.body.appendChild(frame);
   }
+
+  // Listen for messages from iframe to close the widget
+  window.addEventListener('message', function(event) {
+    // Security: Verify message source if needed (optional, adjust based on your domain)
+    // if (event.origin !== 'https://your-domain.com') return;
+    
+    if (event.data && event.data.type === 'CLOSE_CHAT_WIDGET' && event.data.source === 'astroremedis-chat') {
+      close();
+      console.log('Received close message from iframe - closing widget');
+    }
+  });
 
   window.AstroRemedisChat = {
     init: function(cfg){

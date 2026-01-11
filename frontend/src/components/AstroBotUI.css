@@ -21,7 +21,7 @@
   height: 100%;
   overflow: hidden;
   z-index: 0;
-  background: url('../assets/Astro_Backgorund.png') center/cover no-repeat;
+  background: url('../assets/astro_black.png') center/cover no-repeat;
  
   /* Position tuned so the moon sits within the chat window area */
   background-position: 78% 30%;
@@ -38,9 +38,9 @@
 
 /* Soft blobs that drift to add depth */
 /* removed unused blob layers */
-.bg-blob-1 { top: -10%; left: -10%; background: #3b82f6; animation-delay: 0s; }
-.bg-blob-2 { bottom: -15%; right: -10%; background: #22d3ee; animation-delay: 4s; }
-.bg-blob-3 { top: 20%; right: 10%; background: #a78bfa; animation-delay: 8s; }
+.bg-blob-1 { top: -10%; left: -10%; background: #1a1a1a; animation-delay: 0s; }
+.bg-blob-2 { bottom: -15%; right: -10%; background: #2a2a2a; animation-delay: 4s; }
+.bg-blob-3 { top: 20%; right: 10%; background: #1a1a1a; animation-delay: 8s; }
 
 @keyframes blob-float {
   0% { transform: translate3d(0,0,0) scale(1); }
@@ -96,7 +96,7 @@
   height: 90px;
   /* Add safe area to height on iOS */
   height: calc(90px + var(--safe-area-inset-top, 0px));
-  background: linear-gradient(135deg, rgba(15, 15, 35, 0.55), rgba(26, 26, 46, 0.55));
+  background: linear-gradient(135deg, rgba(20, 20, 20, 0.55), rgba(30, 30, 30, 0.55));
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
   display: flex;

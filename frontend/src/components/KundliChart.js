@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import './KundliChart.css';
 
 /**
@@ -6,15 +6,74 @@ import './KundliChart.css';
  * Renders the SVG chart in either full or compact mode.
  * - compact=true shows only the chart (for embedding as a chat card)
  * - Post-processing normalizes multi-line tspans without moving label anchors
+ * - Notifies parent when chart is actually rendered and visible on screen
  */
 const KundliChart = ({ chartData, onChartReady, compact = false }) => {
   const { svg_content, format, chart_type, ayanamsa, astrology_system } = chartData || {};
+  const chartContainerRef = useRef(null);
+  const hasNotifiedRef = useRef(false);
 
-  React.useEffect(() => {
-    if (svg_content && onChartReady) {
-      onChartReady();
-    }
+  // Detect when chart is actually rendered and visible on screen
+  useEffect(() => {
+    if (!svg_content || hasNotifiedRef.current) return;
+
+    const checkChartVisibility = () => {
+      if (!chartContainerRef.current) return;
+
+      const svgElement = chartContainerRef.current.querySelector('svg');
+      if (!svgElement) return;
+
+      // Use IntersectionObserver to detect when chart is visible
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
+              // Chart is visible on screen
+              if (onChartReady && !hasNotifiedRef.current) {
+                hasNotifiedRef.current = true;
+                // Small delay to ensure chart is fully rendered
+                setTimeout(() => {
+                  onChartReady();
+                }, 100);
+              }
+              observer.disconnect();
+            }
+          });
+        },
+        {
+          threshold: [0.1, 0.5, 1.0],
+          rootMargin: '50px'
+        }
+      );
+
+      observer.observe(svgElement);
+
+      // Fallback: if IntersectionObserver doesn't fire, check after a delay
+      const fallbackTimer = setTimeout(() => {
+        if (!hasNotifiedRef.current && svgElement.offsetHeight > 0) {
+          hasNotifiedRef.current = true;
+          if (onChartReady) {
+            onChartReady();
+          }
+          observer.disconnect();
+        }
+      }, 500);
+
+      return () => {
+        observer.disconnect();
+        clearTimeout(fallbackTimer);
+      };
+    };
+
+    // Wait a bit for DOM to update
+    const timer = setTimeout(checkChartVisibility, 100);
+    return () => clearTimeout(timer);
   }, [svg_content, onChartReady]);
+
+  // Reset notification flag when chart data changes
+  useEffect(() => {
+    hasNotifiedRef.current = false;
+  }, [svg_content]);
 
   // Normalize multi-line <tspan> spacing ONLY (no repositioning) to preserve engine layout
   React.useEffect(() => {
@@ -43,7 +102,7 @@ const KundliChart = ({ chartData, onChartReady, compact = false }) => {
   const renderSVGChart = () => {
     if (svg_content) {
       return (
-        <div className="svg-chart-container">
+        <div className="svg-chart-container" ref={chartContainerRef}>
           <div 
             className="svg-chart"
             dangerouslySetInnerHTML={{ __html: svg_content }}

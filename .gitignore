@@ -21,6 +21,14 @@ build/
 .env.production.local
 .env.development.local
 
+# Google Service Account Keys (SENSITIVE - Never commit!)
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!jsconfig.json
+astroremedis-*.json
+
 # IDE
 .vscode/
 .idea/

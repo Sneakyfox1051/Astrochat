@@ -1,0 +1,296 @@
+<!-- 
+  SHOPIFY IFRAME CLOSE HANDLER CODE
+  ===================================
+  Add this code to your Shopify theme to handle the close message from the chatbot iframe.
+  
+  Instructions:
+  1. Go to Shopify Admin → Online Store → Themes → Actions → Edit code
+  2. Open your theme.liquid file (or the file where you added the iframe widget code)
+  3. Find the script section where you have the iframe widget code
+  4. Add the message listener code below to your existing script
+-->
+
+<script>
+  // Listen for close message from chatbot iframe
+  window.addEventListener('message', function(event) {
+    // Security: Verify the origin of your chatbot
+    // For local development: if (event.origin !== 'http://localhost:3000') return;
+    // For production: if (event.origin !== 'https://your-netlify-url.netlify.app') return;
+    if (event.origin !== 'http://localhost:3000') return;
+    
+    // Check if the message is a close request from the chatbot
+    if (event.data && event.data.type === 'CLOSE_CHAT_WIDGET' && event.data.source === 'astroremedis-chat') {
+      // Find and close the chat widget
+      const chatWindow = document.getElementById('chat-widget-window');
+      const chatContainer = document.getElementById('chat-widget-container');
+      const backdrop = document.getElementById('chat-widget-backdrop');
+      
+      if (chatWindow) {
+        chatWindow.classList.remove('active');
+        chatWindow.style.display = 'none';
+      }
+      
+      if (chatContainer) {
+        chatContainer.classList.remove('chat-open');
+      }
+      
+      if (backdrop) {
+        backdrop.style.display = 'none';
+      }
+      
+      console.log('✅ Received close message from chatbot - closing widget');
+    }
+  });
+</script>
+
+<!-- 
+  COMPLETE SHOPIFY WIDGET CODE (with close handler)
+  ==================================================
+  If you need the complete widget code with the close handler integrated, use this:
+-->
+
+<!-- Floating Chat Widget -->
+<div id="chat-widget-container">
+  <!-- Chat Button -->
+  <button id="chat-widget-button" aria-label="Open chat">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 2H4C2.9 2 2 2.9 2 4V16C2 17.1 2.9 18 4 18H6L10 22V18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" fill="white"/>
+    </svg>
+  </button>
+  
+  <!-- Backdrop Overlay -->
+  <div id="chat-widget-backdrop" class="chat-backdrop"></div>
+  
+  <!-- Chat Window -->
+  <div id="chat-widget-window">
+    <div id="chat-widget-iframe-container">
+      <!-- For local development, use: http://localhost:3000 -->
+      <!-- For production, use: https://YOUR_NETLIFY_URL -->
+      <iframe id="chat-widget-iframe" src="http://localhost:3000" frameborder="0" allowfullscreen></iframe>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Chat Widget Styles */
+  #chat-widget-container {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    z-index: 9999;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+
+  #chat-widget-button {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #FF6B35;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    transition: all 0.3s ease;
+    position: relative;
+  }
+
+  #chat-widget-container.chat-open #chat-widget-button {
+    display: none;
+  }
+
+  .chat-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    z-index: 9998;
+    backdrop-filter: blur(4px);
+  }
+
+  #chat-widget-container.chat-open .chat-backdrop {
+    display: block;
+  }
+
+  #chat-widget-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(255, 107, 53, 0.5);
+    background: #FF7A4D;
+  }
+
+  #chat-widget-button:active {
+    transform: scale(0.95);
+  }
+
+  #chat-widget-window {
+    position: fixed;
+    bottom: 50%;
+    right: 50%;
+    transform: translate(50%, 50%);
+    width: 450px;
+    height: 700px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideUp 0.3s ease;
+    z-index: 10000;
+  }
+
+  #chat-widget-window.active {
+    display: flex;
+    transform: translate(50%, 50%);
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translate(50%, calc(50% + 20px));
+    }
+    to {
+      opacity: 1;
+      transform: translate(50%, 50%);
+    }
+  }
+
+  #chat-widget-iframe-container {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  #chat-widget-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    object-fit: contain;
+  }
+
+  @media (max-width: 480px) {
+    #chat-widget-window {
+      width: calc(100vw - 40px);
+      height: calc(100vh - 40px);
+      max-width: calc(100vw - 40px);
+      max-height: calc(100vh - 40px);
+    }
+    #chat-widget-container {
+      bottom: 85px;
+      right: 15px;
+    }
+    #chat-widget-button {
+      width: 56px;
+      height: 56px;
+    }
+  }
+</style>
+
+<script>
+  // Chat Widget Toggle Functionality
+  (function() {
+    const chatButton = document.getElementById('chat-widget-button');
+    const chatWindow = document.getElementById('chat-widget-window');
+    const chatContainer = document.getElementById('chat-widget-container');
+    const backdrop = document.getElementById('chat-widget-backdrop');
+    const panditChatButton = document.getElementById('pandit-chat-button');
+    const panditChatButtonMobile = document.getElementById('pandit-chat-button-mobile');
+
+    function toggleChat() {
+      if (chatWindow.classList.contains('active')) {
+        closeChat();
+      } else {
+        openChat();
+      }
+    }
+
+    function openChat() {
+      chatWindow.classList.add('active');
+      if (chatContainer) {
+        chatContainer.classList.add('chat-open');
+      }
+    }
+
+    function closeChat() {
+      chatWindow.classList.remove('active');
+      chatWindow.style.display = 'none';
+      if (chatContainer) {
+        chatContainer.classList.remove('chat-open');
+      }
+      if (backdrop) {
+        backdrop.style.display = 'none';
+      }
+    }
+
+    // Listen for close message from iframe
+    window.addEventListener('message', function(event) {
+      // Security: Verify the origin
+      // For local development: if (event.origin !== 'http://localhost:3000') return;
+      // For production: if (event.origin !== 'https://your-netlify-url.netlify.app') return;
+      if (event.origin !== 'http://localhost:3000') return;
+      
+      if (event.data && event.data.type === 'CLOSE_CHAT_WIDGET' && event.data.source === 'astroremedis-chat') {
+        closeChat();
+        console.log('✅ Received close message from iframe - closing widget');
+      }
+    });
+
+    if (chatButton) {
+      chatButton.addEventListener('click', toggleChat);
+    }
+
+    // Open chat from navbar button
+    if (panditChatButton) {
+      panditChatButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        openChat();
+      });
+    }
+
+    // Open chat from mobile menu button
+    if (panditChatButtonMobile) {
+      panditChatButtonMobile.addEventListener('click', function(e) {
+        e.preventDefault();
+        openChat();
+        const menuDrawer = document.getElementById('Details-menu-drawer-container');
+        if (menuDrawer && menuDrawer.hasAttribute('open')) {
+          menuDrawer.removeAttribute('open');
+        }
+      });
+    }
+
+    // Close chat when clicking on backdrop
+    if (backdrop) {
+      backdrop.addEventListener('click', function() {
+        closeChat();
+      });
+    }
+
+    // Expose openChat function globally for other scripts
+    window.openChatWidget = openChat;
+  })();
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const chatLinks = document.querySelectorAll('a[href="#open-chatbot"]');
+    chatLinks.forEach(function(link) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (window.openChatWidget) {
+          window.openChatWidget();
+        }
+      });
+    });
+  });
+</script>
+
+
+

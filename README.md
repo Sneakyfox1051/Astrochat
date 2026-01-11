@@ -4,16 +4,53 @@ A sophisticated AI-powered astrology chatbot that combines advanced Kundli gener
 
 ## 🚀 Deployment
 
-### Production URLs
-- **Backend API**: [https://astroremedis.onrender.com](https://astroremedis.onrender.com)
-- **Frontend**: (Add your frontend deployment URL here)
-- **GitHub Repository**: [https://github.com/Sneakyfox1051/Astrochat.git](https://github.com/Sneakyfox1051/Astrochat.git)
+### Backend (AWS Elastic Beanstalk)
+
+The backend is deployed on AWS Elastic Beanstalk with HTTPS enabled.
+
+**Backend URL**: `https://api.astroremedis.com`
+
+#### Quick Deploy to AWS Elastic Beanstalk
+
+```bash
+# Install EB CLI
+pip install awsebcli
+
+# Initialize
+eb init -p python-3.11 astroremedis
+
+# Create environment
+eb create astroremedis-env
+
+# Set environment variables
+eb setenv PROKERALA_CLIENT_ID=your_id \
+          PROKERALA_CLIENT_SECRET=your_secret \
+          OPENAI_API_KEY=your_key \
+          OPENAI_ASSISTANT_ID=your_assistant_id
+
+# Deploy
+eb deploy
+```
+
+### Frontend (Netlify)
+
+The frontend is configured for Netlify deployment with automatic builds.
+
+**Configuration**: See `netlify.toml` for build settings and redirects.
+
+#### Deploy to Netlify
+
+1. Push your code to GitHub/GitLab/Bitbucket
+2. Connect your repository to Netlify
+3. Netlify will automatically detect the `netlify.toml` configuration
+4. The frontend will build and deploy automatically
 
 ### Deployment Status
-- ✅ Backend configured for production deployment
-- ✅ Frontend API service configured with deployed backend URL
-- ✅ Local development URLs commented out
-- 📝 See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions
+- ✅ Backend deployed on AWS Elastic Beanstalk (HTTPS enabled)
+- ✅ Frontend configured for Netlify deployment
+- ✅ WSGI entry point configured (wsgi.py)
+- ✅ Gunicorn configured for production
+- ✅ Environment variables configured
 
 ## 🌟 Features
 
@@ -52,8 +89,7 @@ astro-main/
 │   ├── test_assistant_api.py  # OpenAI Assistant API test app
 │   ├── requirements.txt    # Test dependencies
 │   └── README.md          # Test documentation
-├── archive/                # Old/Discarded Code Files
-│   └── README.md          # Archive documentation
+├── .ebextensions/          # AWS Elastic Beanstalk configuration
 ├── docs/                  # Knowledge Base Documents
 │   ├── KP_RULE_1.docx    # KP Astrology Rules
 │   ├── KP_RULE_2.docx    # KP Astrology Rules
@@ -137,6 +173,26 @@ FLASK_ENV=development
 FLASK_DEBUG=True
 ```
 
+## 📦 Project Structure
+
+```
+astro-main/
+├── wsgi.py                # WSGI entry point for AWS
+├── application.py         # Alternative entry point
+├── Procfile              # Gunicorn configuration
+├── requirements.txt      # Python dependencies
+├── .ebextensions/        # AWS Elastic Beanstalk configs
+├── backend/              # Flask API Server
+│   ├── app.py           # Main Flask application
+│   ├── config.py        # Configuration
+│   └── google_sheets.py # Google Sheets integration
+├── frontend/            # React Frontend
+│   ├── build/           # Production build
+│   ├── src/             # Source code
+│   └── package.json     # Node dependencies
+└── docs/                # Knowledge Base Documents
+```
+
 ## 📡 API Endpoints
 
 | Method | Endpoint | Description |
@@ -184,22 +240,6 @@ cd backend
 python app.py
 ```
 
-### Assistant API Testing (Separate Test App)
-```bash
-# Install test dependencies
-pip install -r tests/requirements.txt
-
-# Run the test app
-streamlit run tests/test_assistant_api.py
-```
-
-This test app allows you to:
-- Test OpenAI Assistant API responses
-- Compare Assistant API with current RAG workflow
-- Test with optional chart data context
-- Export conversations for analysis
-
-**Note:** Test files are separate from main code and don't modify production files.
 
 ### Manual Testing
 1. Start both backend and frontend servers

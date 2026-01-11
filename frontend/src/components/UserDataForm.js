@@ -25,10 +25,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import './UserDataForm.css';
 import astroBotAPI from '../services/api';
 import { filterCities } from '../data/indianCities';
+import logger from '../utils/logger';
+import { sanitizeInput, validatePhone } from '../utils/sanitize';
 
 const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
     name: '',
+    phone: '',
     dob: '',
     tob: '',
     place: '',
@@ -51,6 +54,7 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
     if (isOpen) {
       setFormData({
         name: '',
+        phone: '',
         dob: '',
         tob: '',
         place: '',
@@ -201,6 +205,15 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
       newErrors.name = 'Name must be at least 2 characters';
     }
     
+    // Phone number validation (optional but if provided, must be valid)
+    if (formData.phone.trim()) {
+      // Validate phone before sanitization to preserve format
+      const phoneToValidate = formData.phone.trim();
+      if (!validatePhone(phoneToValidate)) {
+        newErrors.phone = 'Please enter a valid phone number (e.g., 9876543210 or +91 9876543210)';
+      }
+    }
+    
     // For Kundli mode, validate all birth details
     if (formData.mode === 'kundli') {
       // Date of birth validation
@@ -250,27 +263,37 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
     
     try {
       // Format the data for the backend based on mode
+      // Sanitize all inputs before sending
       const formattedData = {
-        name: formData.name.trim(),
+        name: sanitizeInput(formData.name.trim()),
+        phone: formData.phone.trim() || '', // Include phone number (sanitize only if needed, preserve format)
         mode: formData.mode,
         timezone: formData.timezone
       };
       
-      // Add birth details only for Kundli mode
+      // Sanitize phone if provided (but preserve valid phone characters)
+      if (formattedData.phone) {
+        // Only sanitize to remove HTML/script tags, but preserve phone number format
+        formattedData.phone = sanitizeInput(formattedData.phone);
+      }
+      
+        // Add birth details only for Kundli mode
       if (formData.mode === 'kundli') {
         formattedData.dob = formData.dob;
         formattedData.tob = formData.tob + ':00'; // Add seconds
-        formattedData.place = formData.place.trim();
+        formattedData.place = sanitizeInput(formData.place.trim());
         
         // Fire-and-forget: submit to backend to store in Google Sheet
-        // Do not block UX if Sheets write fails
-        astroBotAPI.sendFormData(formattedData).catch(() => {});
+        // Do not block UX if Sheets write fails, but log errors for debugging
+        astroBotAPI.sendFormData(formattedData).catch((error) => {
+          logger.error('Failed to save form data to Google Sheets:', error);
+        });
       }
 
       await onSubmit(formattedData);
       onClose();
     } catch (error) {
-      console.error('Error submitting form:', error);
+      logger.error('Error submitting form:', error);
       setErrors({ submit: 'Failed to submit form. Please try again.' });
     } finally {
       setIsSubmitting(false);
@@ -362,6 +385,27 @@ const UserDataForm = ({ isOpen, onClose, onSubmit }) => {
               disabled={isSubmitting}
             />
             {errors.name && <span className="error-message">{errors.name}</span>}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="phone">Phone Number</label>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handleInputChange}
+              placeholder="Enter your phone number (optional)"
+              className={errors.phone ? 'error' : ''}
+              disabled={isSubmitting}
+              aria-label="Phone Number"
+              aria-invalid={errors.phone ? 'true' : 'false'}
+              maxLength={20}
+            />
+            {errors.phone && <span className="error-message">{errors.phone}</span>}
+            {!errors.phone && (
+              <span className="helper-text">Optional: For personalized updates and consultations</span>
+            )}
           </div>
 
           {/* Birth Details - Only show for Kundli mode */}

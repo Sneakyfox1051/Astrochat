@@ -1,0 +1,19 @@
+# Netlify SPA redirects - ensures all routes work with React Router
+# This file will be copied to build/ during build process
+
+/*    /index.html   200
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

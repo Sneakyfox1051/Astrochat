@@ -29,6 +29,7 @@ A sophisticated astrology chatbot backend that provides AI-powered consultations
 
 2. **Install dependencies**
    ```bash
+   # From project root directory
    pip install -r requirements.txt
    ```
 
@@ -217,13 +218,12 @@ curl http://localhost:5000/api/health
 ```
 backend/
 ├── app.py                 # Main Flask application
+├── config.py             # Configuration and constants
 ├── google_sheets.py       # Google Sheets integration
-├── requirements.txt       # Python dependencies
-├── env_example.txt        # Environment variables template
-├── start_server.py        # Server startup script
-├── test_api.py           # API testing utilities
 └── README.md             # This file
 ```
+
+**Note:** Python dependencies are in the root `requirements.txt` file.
 
 ### Key Features Implementation
 

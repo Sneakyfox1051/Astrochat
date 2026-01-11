@@ -2204,28 +2204,35 @@ def form_submit():
         # Try to append to Google Sheet (optional - not critical for core functionality)
         if append_form_submission is not None:
             try:
+                logger.info(f"Attempting to save form data to Google Sheets for user: {payload.get('name', 'Unknown')}")
+                # Ensure phone is a string (handle None, empty, or missing values)
+                phone_value = str(payload.get('phone', '')).strip() if payload.get('phone') else ''
+                
                 append_form_submission(
                     spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
                     worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
                     row_data=[
-                        datetime.now().isoformat(),  # Timestamp
-                        payload['name'],  # Name
-                        payload.get('phone', ''),  # Phone Number (optional)
-                        payload['dob'],  # Date of Birth
-                        payload['tob'],  # Time of Birth
-                        payload['place'],  # Place
-                        payload.get('timezone', 'Asia/Kolkata'),  # Timezone
-                        payload.get('mode', 'kundli'),  # Mode (kundli or horary)
-                        '',  # Rating (empty for form-only rows)
-                        ''  # Feedback Text (empty)
+                        datetime.now().isoformat(),  # Column A: Timestamp
+                        str(payload.get('name', '')).strip(),  # Column B: Name
+                        phone_value,  # Column C: Phone Number (optional)
+                        str(payload.get('dob', '')).strip(),  # Column D: Date of Birth
+                        str(payload.get('tob', '')).strip(),  # Column E: Time of Birth
+                        str(payload.get('place', '')).strip(),  # Column F: Place
+                        str(payload.get('timezone', 'Asia/Kolkata')).strip(),  # Column G: Timezone
+                        str(payload.get('mode', 'kundli')).strip(),  # Column H: Mode (kundli or horary)
+                        '',  # Column I: Rating (empty for form-only rows)
+                        ''  # Column J: Feedback Text (empty)
                     ]
                 )
                 logger.info("Form data successfully saved to Google Sheets")
             except Exception as sheets_error:
-                logger.warning(f"Google Sheets integration failed: {sheets_error}")
+                logger.error(f"Google Sheets integration failed: {sheets_error}", exc_info=True)
+                # Log full error details for debugging
+                import traceback
+                logger.error(f"Full traceback: {traceback.format_exc()}")
             # Continue without Google Sheets - not critical
         else:
-            logger.info("Google Sheets integration not configured - skipping data storage")
+            logger.warning("Google Sheets integration not configured - skipping data storage. Check GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_FILE environment variables.")
 
         return jsonify({"success": True, "message": "Form submitted successfully"})
     except HttpError as he:
@@ -2248,8 +2255,11 @@ def sheets_diagnose():
             "GOOGLE_CLIENT_SECRET": bool(os.getenv('GOOGLE_CLIENT_SECRET')),
             "GOOGLE_REFRESH_TOKEN": bool(os.getenv('GOOGLE_REFRESH_TOKEN')),
             "GOOGLE_TOKEN_URI": bool(os.getenv('GOOGLE_TOKEN_URI')),
+            "GOOGLE_SERVICE_ACCOUNT_JSON": bool(os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')),
+            "GOOGLE_SERVICE_ACCOUNT_FILE": bool(os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE')),
             "GOOGLE_SHEETS_SPREADSHEET_ID": bool(os.getenv('GOOGLE_SHEETS_SPREADSHEET_ID')),
-            "GOOGLE_SHEETS_WORKSHEET_NAME": bool(os.getenv('GOOGLE_SHEETS_WORKSHEET_NAME'))
+            "GOOGLE_SHEETS_WORKSHEET_NAME": bool(os.getenv('GOOGLE_SHEETS_WORKSHEET_NAME')),
+            "append_form_submission_available": append_form_submission is not None
         }
         # Include .env path diagnostics
         result.update({
@@ -2261,7 +2271,121 @@ def sheets_diagnose():
         })
         return jsonify(result), (200 if result.get('ok') else 500)
     except Exception as e:
+        logger.error(f"Error in sheets-diagnose endpoint: {e}", exc_info=True)
         return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route('/api/sheets/test-write', methods=['POST'])
+def sheets_test_write():
+    """Test writing to Google Sheets with sample data."""
+    try:
+        if append_form_submission is None:
+            return jsonify({
+                "ok": False,
+                "error": "Google Sheets integration not configured. Check GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_FILE environment variables."
+            }), 500
+        
+        # Try to write a test row
+        test_data = [
+            datetime.now().isoformat(),  # Timestamp
+            "Test User",  # Name
+            "1234567890",  # Phone
+            "1990-01-01",  # DOB
+            "12:00:00",  # TOB
+            "Test City",  # Place
+            "Asia/Kolkata",  # Timezone
+            "kundli",  # Mode
+            "",  # Rating
+            ""  # Feedback
+        ]
+        
+        append_form_submission(
+            spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
+            worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
+            row_data=test_data
+        )
+        
+        return jsonify({
+            "ok": True,
+            "message": "Test data successfully written to Google Sheets",
+            "data": test_data
+        })
+    except Exception as e:
+        logger.error(f"Test write failed: {e}", exc_info=True)
+        import traceback
+        return jsonify({
+            "ok": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+@app.route('/api/sheets/test-form-submit', methods=['POST'])
+def sheets_test_form_submit():
+    """Test form submission with custom data - useful for debugging."""
+    try:
+        payload = request.get_json() or {}
+        
+        if append_form_submission is None:
+            return jsonify({
+                "ok": False,
+                "error": "Google Sheets integration not configured. Check GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_FILE environment variables."
+            }), 500
+        
+        # Use provided data or defaults for testing
+        test_name = payload.get('name', 'Test User')
+        test_phone = str(payload.get('phone', '')).strip() if payload.get('phone') else ''
+        test_dob = payload.get('dob', '1990-01-01')
+        test_tob = payload.get('tob', '12:00:00')
+        test_place = payload.get('place', 'Test City')
+        test_timezone = payload.get('timezone', 'Asia/Kolkata')
+        test_mode = payload.get('mode', 'kundli')
+        
+        # Prepare row data exactly as form submission does
+        row_data = [
+            datetime.now().isoformat(),  # Column A: Timestamp
+            str(test_name).strip(),  # Column B: Name
+            test_phone,  # Column C: Phone Number (optional)
+            str(test_dob).strip(),  # Column D: Date of Birth
+            str(test_tob).strip(),  # Column E: Time of Birth
+            str(test_place).strip(),  # Column F: Place
+            str(test_timezone).strip(),  # Column G: Timezone
+            str(test_mode).strip(),  # Column H: Mode (kundli or horary)
+            '',  # Column I: Rating (empty for form-only rows)
+            ''  # Column J: Feedback Text (empty)
+        ]
+        
+        logger.info(f"Testing form submission with data: {row_data}")
+        
+        # Try to write to Google Sheets
+        append_form_submission(
+            spreadsheet_name=GOOGLE_SHEETS_SPREADSHEET_NAME,
+            worksheet_name=GOOGLE_SHEETS_WORKSHEET_NAME,
+            row_data=row_data
+        )
+        
+        return jsonify({
+            "ok": True,
+            "message": "Test form data successfully written to Google Sheets!",
+            "data_sent": {
+                "name": test_name,
+                "phone": test_phone,
+                "dob": test_dob,
+                "tob": test_tob,
+                "place": test_place,
+                "timezone": test_timezone,
+                "mode": test_mode
+            },
+            "row_data": row_data,
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Test form submit failed: {e}", exc_info=True)
+        import traceback
+        return jsonify({
+            "ok": False,
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }), 500
 
 @app.route('/api/feedback-submit', methods=['POST'])
 def feedback_submit():

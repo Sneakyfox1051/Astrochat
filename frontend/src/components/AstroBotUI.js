@@ -33,13 +33,14 @@
  * @since 2024
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ChatBubble from './ChatBubble';
 import Character from './Character';
 import BottomNavigation from './BottomNavigation';
 import ExpandableChat from './ExpandableChat';
 import UserDataForm from './UserDataForm';
 import astroBotAPI from '../services/api';
+import logger from '../utils/logger';
 import './AstroBotUI.css';
 // No video import; using procedural CSS background for better performance
 
@@ -56,6 +57,25 @@ const AstroBotUI = () => {
   
   // Prevent duplicate form submissions
   const formSubmissionRef = useRef(false);
+
+  // ===== EFFECTS =====
+  
+  /**
+   * Automatically show form when app loads in iframe
+   * This ensures the form appears immediately when chatbot is embedded
+   * Note: Chat window should NOT open until form is submitted
+   */
+  useEffect(() => {
+    // Check if running in iframe
+    const isInIframe = window.parent && window.parent !== window;
+    
+    // If in iframe and no user data exists, show form automatically (but don't open chat yet)
+    if (isInIframe && !userData) {
+      setIsFormOpen(true);
+      // Don't open chat - it will open after form submission
+      logger.log('Running in iframe - showing form automatically (chat will open after form submission)');
+    }
+  }, []); // Run only once on mount
 
   // ===== EVENT HANDLERS =====
   
@@ -85,7 +105,7 @@ const AstroBotUI = () => {
     window.dispatchEvent(new CustomEvent('refreshChat'));
     // Reset user data to show form again
     setUserData(null);
-    console.log('Refreshing chat - clearing messages');
+    logger.log('Refreshing chat - clearing messages');
   };
 
   /**
@@ -104,6 +124,8 @@ const AstroBotUI = () => {
     setIsFormOpen(false);
   };
 
+  // ===== EVENT HANDLERS =====
+
   /**
    * Handles form submission with user birth data.
    * Stores user data and transitions to chat interface.
@@ -119,7 +141,7 @@ const AstroBotUI = () => {
     try {
       // Prevent duplicate submissions - check if already processing
       if (formSubmissionRef.current) {
-        console.warn('Form submission already in progress, ignoring duplicate');
+        logger.warn('Form submission already in progress, ignoring duplicate');
         return;
       }
       
@@ -134,7 +156,7 @@ const AstroBotUI = () => {
       // Submit form data to Google Sheets (non-blocking, fire and forget)
       // Backend also has duplicate prevention, so this is double protection
       astroBotAPI.submitFormData(data).catch(error => {
-        console.warn('Failed to save form data to Google Sheets:', error);
+        logger.warn('Failed to save form data to Google Sheets:', error);
         // Don't block form submission if Google Sheets fails
       }).finally(() => {
         // Reset after a longer delay to prevent rapid duplicate submissions
@@ -143,10 +165,10 @@ const AstroBotUI = () => {
         }, 3000); // Increased to 3 seconds for better protection
       });
       
-      console.log('Form submitted with data:', data);
+      logger.log('Form submitted with data:', data);
     } catch (error) {
       formSubmissionRef.current = false; // Reset on error
-      console.error('Error handling form submission:', error);
+      logger.error('Error handling form submission:', error);
       throw error;
     }
   };

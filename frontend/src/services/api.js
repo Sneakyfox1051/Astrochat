@@ -342,7 +342,7 @@ class AstroBotAPI {
 
   /**
    * Send form data to backend to store in Google Sheets
-   * @param {Object} formData - {name, dob, tob, place, timezone}
+   * @param {Object} formData - {name, phone, dob, tob, place, timezone, mode}
    */
   async sendFormData(formData) {
     try {

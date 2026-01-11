@@ -176,10 +176,22 @@ def append_form_submission(spreadsheet_name: str, worksheet_name: str, row_data:
     This function takes user form data and appends it as a new row to the specified
     Google Sheet. It's used to store user birth details and form submissions.
     
+    Column structure:
+    - Column A: Timestamp
+    - Column B: Name
+    - Column C: Phone Number
+    - Column D: Date of Birth
+    - Column E: Time of Birth
+    - Column F: Place
+    - Column G: Timezone
+    - Column H: Mode (kundli/horary)
+    - Column I: Rating (empty for form-only rows)
+    - Column J: Feedback Text (empty for form-only rows)
+    
     Args:
         spreadsheet_name (str): Name of the spreadsheet (for logging)
         worksheet_name (str): Name of the worksheet/tab (defaults to 'Sheet1')
-        row_data (List[str]): List of data to append [timestamp, name, dob, tob, place, timezone]
+        row_data (List[str]): List of data to append [timestamp, name, phone, dob, tob, place, timezone, mode, rating, feedback]
         
     Raises:
         RuntimeError: If Google Sheets API error occurs or authentication fails
@@ -224,7 +236,19 @@ def update_row_with_feedback(spreadsheet_name: str, worksheet_name: str, user_na
     Update the most recent form submission row with feedback data.
     
     Finds the most recent row for the given user name that has empty rating/feedback,
-    and updates columns H (Rating) and I (Feedback Text) with the feedback data.
+    and updates columns I (Rating) and J (Feedback Text) with the feedback data.
+    
+    Column structure:
+    - Column A: Timestamp
+    - Column B: Name
+    - Column C: Phone Number
+    - Column D: Date of Birth
+    - Column E: Time of Birth
+    - Column F: Place
+    - Column G: Timezone
+    - Column H: Mode (kundli/horary)
+    - Column I: Rating
+    - Column J: Feedback Text
     
     Args:
         spreadsheet_name (str): Name of the spreadsheet (for logging)
@@ -248,7 +272,7 @@ def update_row_with_feedback(spreadsheet_name: str, worksheet_name: str, user_na
         sheet_tab = worksheet_name or 'Sheet1'
         
         # Get all data from the sheet
-        range_name = f"{sheet_tab}!A2:I"  # Start from row 2 (skip header)
+        range_name = f"{sheet_tab}!A2:J"  # Start from row 2 (skip header), include all columns up to J (Feedback)
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
             range=range_name
@@ -267,11 +291,16 @@ def update_row_with_feedback(spreadsheet_name: str, worksheet_name: str, user_na
             range_name = f"{sheet_tab}!A1"
             body = {
                 "values": [[
-                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),  # Readable timestamp format
-                    user_name,
-                    '', '', '', '', '',  # Empty form fields
-                    str(rating),
-                    feedback_text or 'N/A'
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),  # Column A: Timestamp
+                    user_name,  # Column B: Name
+                    '',  # Column C: Phone Number (empty)
+                    '',  # Column D: Date of Birth (empty)
+                    '',  # Column E: Time of Birth (empty)
+                    '',  # Column F: Place (empty)
+                    '',  # Column G: Timezone (empty)
+                    '',  # Column H: Mode (empty)
+                    str(rating),  # Column I: Rating
+                    feedback_text or 'N/A'  # Column J: Feedback Text
                 ]]
             }
             service.spreadsheets().values().append(
@@ -290,14 +319,14 @@ def update_row_with_feedback(spreadsheet_name: str, worksheet_name: str, user_na
             row = values[i]
             # Check if row has enough columns and matches the name
             if len(row) > 1 and row[1] == user_name:  # Column B is index 1 (Name)
-                # Check if rating is empty (column H is index 7)
-                if len(row) <= 8 or not row[7] or row[7].strip() == '':
+                # Check if rating is empty (column I is index 8)
+                if len(row) <= 9 or not row[8] or row[8].strip() == '':
                     row_index = i + 2  # +2 because we started from row 2 (1-indexed + header)
                     break
         
         if row_index:
-            # Update the existing row
-            update_range = f"{sheet_tab}!H{row_index}:I{row_index}"
+            # Update the existing row (columns I and J for Rating and Feedback)
+            update_range = f"{sheet_tab}!I{row_index}:J{row_index}"
             body = {
                 "values": [[str(rating), feedback_text or 'N/A']]
             }
@@ -319,11 +348,16 @@ def update_row_with_feedback(spreadsheet_name: str, worksheet_name: str, user_na
             range_name = f"{sheet_tab}!A1"
             body = {
                 "values": [[
-                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),  # Readable timestamp format
-                    user_name,
-                    '', '', '', '', '',  # Empty form fields
-                    str(rating),
-                    feedback_text or 'N/A'
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),  # Column A: Timestamp
+                    user_name,  # Column B: Name
+                    '',  # Column C: Phone Number (empty)
+                    '',  # Column D: Date of Birth (empty)
+                    '',  # Column E: Time of Birth (empty)
+                    '',  # Column F: Place (empty)
+                    '',  # Column G: Timezone (empty)
+                    '',  # Column H: Mode (empty)
+                    str(rating),  # Column I: Rating
+                    feedback_text or 'N/A'  # Column J: Feedback Text
                 ]]
             }
             service.spreadsheets().values().append(

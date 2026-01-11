@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import './BottomNavigation.css';
+import astroBotAPI from '../services/api';
+import logger from '../utils/logger';
 
 const BottomNavigation = ({ onChatToggle, isChatOpen, onRefreshChat, onShowForm }) => {
   const [isActive, setIsActive] = useState(false);
@@ -13,34 +15,72 @@ const BottomNavigation = ({ onChatToggle, isChatOpen, onRefreshChat, onShowForm 
     } else if (onChatToggle) {
       onChatToggle();
     }
-    console.log('Center button clicked - Show form popup');
+    logger.log('Center button clicked - Show form popup');
   };
 
-  // Left close icon: closes chat if open
+  // Left close icon: closes chat if open, or closes iframe if embedded
   const handleCloseClick = () => {
-    // Close chat if it's open
+    // If we're in an iframe, send message to parent window to close the iframe
+    if (window.parent && window.parent !== window) {
+      // Send message to parent window to close the iframe
+      window.parent.postMessage({
+        type: 'CLOSE_CHAT_WIDGET',
+        source: 'astroremedis-chat'
+      }, '*');
+      logger.log('Close button clicked - Requesting parent to close iframe');
+      return;
+    }
+    
+    // If not in iframe, close chat normally
     if (isChatOpen && onChatToggle) {
       onChatToggle();
       setIsActive(false);
     }
-    console.log('Close button clicked');
+    logger.log('Close button clicked - Closing chat');
   };
 
-  // Right refresh icon: return to main page (leave chat)
-  const handleRefreshClick = () => {
-    // Close chat if open and navigate to main page
-    if (isChatOpen && onChatToggle) {
-      onChatToggle();
-      setIsActive(false);
-    }
-    // Navigate to app root (main page). Works in dev and prod builds.
+  // Right refresh icon: refresh backend connection and reset chat
+  const handleRefreshClick = async () => {
     try {
-      window.location.href = window.location.origin + '/';
-    } catch (_) {
-      // Fallback: hard reload
-      window.location.reload();
+      logger.log('Refresh button clicked - Refreshing backend connection');
+      
+      // Verify backend connection first
+      try {
+        const isConnected = await astroBotAPI.verifyConnection();
+        if (isConnected) {
+          logger.log('✅ Backend connection verified');
+        } else {
+          logger.warn('⚠️ Backend connection check failed - will still refresh chat');
+        }
+      } catch (error) {
+        logger.warn('Backend connection verification error:', error);
+        // Continue with refresh even if verification fails
+      }
+      
+      // Trigger chat refresh (clears messages, resets state)
+      if (onRefreshChat) {
+        onRefreshChat();
+        logger.log('Chat state refreshed');
+      }
+      
+      // Close chat if open to show fresh state
+      if (isChatOpen && onChatToggle) {
+        onChatToggle();
+        setIsActive(false);
+      }
+      
+      // Reset active state
+      setIsActive(false);
+      
+      logger.log('Backend connection refreshed successfully');
+      
+    } catch (error) {
+      logger.error('Error in refresh handler:', error);
+      // Still try to refresh chat state even if connection check fails
+      if (onRefreshChat) {
+        onRefreshChat();
+      }
     }
-    console.log('Refresh button clicked - Navigating to main page');
   };
 
   return (

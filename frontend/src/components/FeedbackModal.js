@@ -23,6 +23,8 @@
 
 import React, { useState, useEffect } from 'react';
 import './FeedbackModal.css';
+import logger from '../utils/logger';
+import { sanitizeInput } from '../utils/sanitize';
 
 const FeedbackModal = ({ isOpen, onClose, onSubmit }) => {
   // ===== STATE MANAGEMENT =====
@@ -88,7 +90,9 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit }) => {
    * @param {Event} e - Input change event
    */
   const handleFeedbackChange = (e) => {
-    setFeedback(e.target.value);
+    // Sanitize feedback input
+    const sanitized = sanitizeInput(e.target.value);
+    setFeedback(sanitized);
   };
 
   /**
@@ -120,10 +124,68 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit }) => {
       // Close modal after successful submission
       onClose();
     } catch (error) {
-      console.error('Error submitting feedback:', error);
+      logger.error('Error submitting feedback:', error);
       alert('Feedback submit karne mein koi problem aayi. Kripya dobara try karein.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Handles Pay Now button click
+   * Triggers gokwik-buy-now functionality
+   */
+  const handlePayNow = () => {
+    // Load and execute gokwik-buy-now snippet
+    // Since this React app might be embedded in Shopify (via iframe),
+    // we need to handle gokwik-buy-now which is a Shopify Liquid snippet
+    
+    // Method 1: If we're in an iframe, send message to parent window to trigger gokwik
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'TRIGGER_GOKWIK_BUY_NOW',
+        source: 'astroremedis-chat'
+      }, '*');
+      return;
+    }
+    
+    // Method 2: If gokwik is available in current window, trigger it directly
+    if (window.gokwik) {
+      if (typeof window.gokwik.openBuyNow === 'function') {
+        window.gokwik.openBuyNow();
+      } else if (typeof window.gokwik.init === 'function') {
+        window.gokwik.init();
+      }
+      return;
+    }
+    
+    // Method 3: Try to find and trigger gokwik button/element if it exists in DOM
+    const gokwikButton = document.querySelector('[data-gokwik-buy-now], .gokwik-buy-now, #gokwik-buy-now');
+    if (gokwikButton) {
+      gokwikButton.click();
+      return;
+    }
+    
+    // Method 4: Try to load gokwik script dynamically
+    const existingScript = document.querySelector('script[src*="gokwik"]');
+    if (!existingScript) {
+      const gokwikScript = document.createElement('script');
+      gokwikScript.src = 'https://cdn.gokwik.co/v1/bundle.js';
+      gokwikScript.onload = function() {
+        if (window.gokwik && typeof window.gokwik.openBuyNow === 'function') {
+          window.gokwik.openBuyNow();
+        }
+      };
+      document.body.appendChild(gokwikScript);
+    } else {
+      // Script exists, wait a bit and try again
+      setTimeout(() => {
+        if (window.gokwik && typeof window.gokwik.openBuyNow === 'function') {
+          window.gokwik.openBuyNow();
+        } else {
+          logger.warn('Gokwik script loaded but openBuyNow function not available. Please check gokwik configuration.');
+        }
+      }, 500);
     }
   };
 
@@ -219,13 +281,22 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit }) => {
 
         {/* Modal Footer - Outside scrollable body */}
         <div className="feedback-modal-footer">
-          <button
-            className="feedback-submit-btn"
-            onClick={handleSubmit}
-            disabled={isSubmitting || rating === 0}
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
-          </button>
+          <div className="feedback-footer-buttons">
+            {/* Pay to Continue button - Commented out for now */}
+            {/* <button
+              className="pay-now-btn"
+              onClick={handlePayNow}
+            >
+              💳 Pay to Continue
+            </button> */}
+            <button
+              className="feedback-submit-btn"
+              onClick={handleSubmit}
+              disabled={isSubmitting || rating === 0}
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
